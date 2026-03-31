@@ -1,0 +1,136 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        {% if current_user.is_premium %}
+        <div class="card p-4 mb-4 text-white shadow-lg border-0" style="border-radius: 20px; background: linear-gradient(135deg, #1d976c, #93f9b9);">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold mb-1">🎉 👑 WELCOME PREMIUM MEMBER!</h2>
+                    <h5 class="mb-0">Active Plan: <b>{{current_user.plan_name}}</b></h5>
+                    <p class="mt-2 mb-0 opacity-75">Message from Garage: "<i>{{current_user.admin_reply}}</i>"</p>
+                    <small class="d-block mt-3 bg-white text-success px-2 py-1 rounded-pill d-inline-block fw-bold">Valid Until: {{current_user.sub_end_date.strftime('%d %B, %Y')}}</small>
+                </div>
+                <div class="text-end">
+                    <i class="fas fa-crown fa-4x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if notices %}
+        <div class="mb-4">
+            <h6 class="fw-bold text-muted mb-2"><i class="fas fa-bullhorn"></i> GARAGE ANNOUNCEMENTS</h6>
+            {% for n in notices %}
+            <div class="alert shadow-sm border-0 mb-2" style="background-color: {{n.color}}; color: #333; border-radius: 12px;">
+                <h6 class="fw-bold mb-1">{{n.title}}</h6>
+                <p class="mb-0 small">{{n.content}}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="card p-4 mb-4 border-0 shadow-sm">
+            <h5 class="fw-bold mb-3 text-primary"><i class="fas fa-tasks"></i> YOUR REQUEST STATUS</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="small fw-bold border-bottom pb-2">Plan Requests</h6>
+                    {% for p in pay_reqs %}
+                    <div class="alert alert-light p-2 mb-2 small border d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <a href="/delete/payreq/{{p.id}}" class="text-danger me-2 fw-bold" style="text-decoration:none;">&times;</a>
+                            <span>{{p.plan_name}}</span>
+                        </div>
+                        <span class="badge {% if p.status == 'Approved' %}bg-success{% elif p.status == 'Rejected' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{p.status}}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <h6 class="small fw-bold border-bottom pb-2">Slot Bookings</h6>
+                    {% for b in bookings %}
+                    <div class="alert alert-light p-2 mb-2 small border">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="d-flex">
+                                <a href="/delete/booking/{{b.id}}" class="text-danger me-2 fw-bold" style="text-decoration:none;">&times;</a>
+                                <div>
+                                    <b class="d-block">{{b.service_name}}</b>
+                                    <span class="text-muted" style="font-size:10px;">{{b.slot_time}}</span>
+                                </div>
+                            </div>
+                            <span class="badge {% if b.status == 'Confirmed' %}bg-success{% elif b.status == 'Rejected' %}bg-danger{% else %}bg-info{% endif %}">{{b.status}}</span>
+                        </div>
+                        {% if b.admin_note %}<div class="text-primary mt-1" style="font-size:10px;">Note: {{b.admin_note}}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <h5 class="fw-bold mt-4 mb-3">UPGRADE YOUR PLAN</h5>
+        <div class="row">
+            {% for p in plans %}
+            <div class="col-md-6 mb-3">
+                <div class="card p-3 border-0 h-100 shadow-sm {% if current_user.plan_name == p.name %}border border-success border-3 shadow{% endif %}" 
+                     style="{% if current_user.plan_name == p.name %}background-color: #f0fff4;{% endif %} transition: 0.3s;">
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="fw-bold mb-0 {% if current_user.plan_name == p.name %}text-success{% else %}text-dark{% endif %}">
+                            {{p.name}} 
+                            {% if current_user.plan_name == p.name %}
+                            <span class="badge bg-success ms-1" style="font-size: 10px;">CURRENT ACTIVE</span>
+                            {% endif %}
+                        </h6>
+                        <span class="text-success fw-bold">Rs. {{p.price}}</span>
+                    </div>
+                    
+                    <p class="small text-muted my-2">{{p.details}}</p>
+                    
+                    {% if current_user.plan_name == p.name %}
+                        <button class="btn btn-success btn-sm w-100 fw-bold disabled"><i class="fas fa-check-circle"></i> Already Active</button>
+                    {% else %}
+                        <button class="btn btn-outline-success btn-sm w-100" onclick="showPay('{{p.qr_image}}', '{{p.id}}', '{{p.name}}')">Buy Now</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card p-4 shadow-sm mb-4 border-0">
+            <h6 class="fw-bold mb-3"><i class="fas fa-calendar-alt"></i> BOOK A SLOT</h6>
+            <form action="/book_slot" method="POST">
+                <input type="text" name="car" class="form-control mb-2" placeholder="Car No" required>
+                <select name="service" class="form-select mb-2">{% for s in services %}<option value="{{s.name}}">{{s.name}}</option>{% endfor %}</select>
+                <input type="datetime-local" name="slot" class="form-control mb-3" required>
+                <button class="btn btn-dark w-100 fw-bold">Request Slot</button>
+            </form>
+        </div>
+
+        <div class="card p-4 bg-light border-0 shadow-sm">
+            <h6 class="fw-bold mb-3"><i class="fas fa-comment-dots"></i> SHARE FEEDBACK</h6>
+            <form action="/submit_feedback" method="POST">
+                <select name="rating" class="form-select mb-2"><option value="5">⭐⭐⭐⭐⭐</option><option value="4">⭐⭐⭐⭐</option><option value="3">⭐⭐⭐</option></select>
+                <textarea name="comment" class="form-control mb-3" placeholder="How was it?"></textarea>
+                <button class="btn btn-warning w-100 fw-bold text-white shadow">Post Review</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="payModal" tabindex="-1"><div class="modal-dialog text-center"><div class="modal-content border-0 shadow-lg p-4">
+    <h5 class="fw-bold">Pay for <span id="pName"></span></h5>
+    <img id="qr" src="" class="img-fluid border my-3 p-2 rounded" style="max-width: 100%;">
+    <p class="small text-muted">Scan & Pay via UPI.</p>
+    <a id="pBtn" href="" class="btn btn-success w-100 fw-bold py-2">SEND PAYMENT NOTIFICATION</a>
+</div></div></div>
+
+<script>
+function showPay(img, id, name){
+    document.getElementById('qr').src = "/static/uploads/" + img;
+    document.getElementById('pName').innerText = name;
+    document.getElementById('pBtn').href = "/request_sub/" + id;
+    new bootstrap.Modal(document.getElementById('payModal')).show();
+}
+</script>
+{% endblock %}

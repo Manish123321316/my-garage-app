@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card p-3 shadow-sm border-warning h-100">
+            <h6 class="fw-bold">POST NOTICE</h6>
+            <form method="POST">
+                <input type="hidden" name="action" value="add_notice">
+                <input type="text" name="title" class="form-control mb-1" placeholder="Title" required>
+                <textarea name="content" class="form-control mb-1" placeholder="Msg"></textarea>
+                <select name="visible" class="form-select mb-1"><option value="All">All</option><option value="Client">Clients</option></select>
+                <input type="color" name="color" class="form-control mb-1" value="#ffff00">
+                <button class="btn btn-warning w-100 btn-sm">Post</button>
+            </form>
+            <hr>{% for n in notices %}<div class="small border-bottom py-1">{{n.title}}<a href="/delete/notice/{{n.id}}" class="text-danger float-end">✖</a></div>{% endfor %}
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card p-3 shadow-sm border-success h-100">
+            <h6 class="fw-bold">CREATE PLAN (Monthly)</h6>
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="add_plan">
+                <input type="text" name="name" class="form-control mb-1" placeholder="Plan Name" required>
+                <input type="number" name="price" class="form-control mb-1" placeholder="Price" required>
+                <label class="small fw-bold">Attach QR Image:</label>
+                <input type="file" name="qr_image" class="form-control mb-1" accept="image/*" required>
+                <textarea name="details" class="form-control mb-1" placeholder="Benefits..."></textarea>
+                <button class="btn btn-success w-100 btn-sm">Create</button>
+            </form>
+            <hr>{% for p in plans %}<div class="small border-bottom py-1">{{p.name}} (Rs.{{p.price}})<a href="/delete/plan/{{p.id}}" class="text-danger float-end">✖</a></div>{% endfor %}
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card p-3 shadow-sm border-primary h-100">
+            <h6 class="fw-bold">GARAGE SERVICES</h6>
+            <form method="POST">
+                <input type="hidden" name="action" value="add_service">
+                <input type="text" name="name" class="form-control mb-1" placeholder="Service Name" required>
+                <input type="number" name="price" class="form-control mb-1" placeholder="Base Price">
+                <button class="btn btn-primary w-100 btn-sm">Add</button>
+            </form>
+            <hr>{% for s in services %}<div class="small border-bottom py-1">{{s.name}}<a href="/delete/service/{{s.id}}" class="text-danger float-end">✖</a></div>{% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

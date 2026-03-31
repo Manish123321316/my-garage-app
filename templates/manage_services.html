@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-4"><div class="card p-3">
+        <h5>Add Service</h5>
+        <form method="POST"><input type="text" name="name" class="form-control mb-2" placeholder="Service Name" required>
+        <input type="number" name="price" class="form-control mb-2" placeholder="Price">
+        <button class="btn btn-dark w-100">Add</button></form>
+    </div></div>
+    <div class="col-md-8"><div class="card p-3">
+        <h5>Saved Services</h5>
+        <table class="table">
+            {% for s in services %}
+            <tr><td>{{s.name}}</td><td>Rs. {{s.default_price}}</td>
+                <td><button class="btn btn-sm btn-warning" onclick="editModal('{{s.id}}','{{s.name}}','{{s.default_price}}')">Edit</button>
+                <a href="/delete_service/{{s.id}}" class="btn btn-sm btn-danger">Del</a></td></tr>
+            {% endfor %}
+        </table>
+    </div></div>
+</div>
+
+<div class="modal fade" id="edMod" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <form id="edForm" method="POST"><div class="modal-body">
+        <input type="text" name="name" id="edName" class="form-control mb-2">
+        <input type="number" name="price" id="edPrice" class="form-control"></div>
+        <div class="modal-footer"><button class="btn btn-success">Update</button></div>
+    </form>
+</div></div></div>
+
+<script>
+function editModal(id, n, p) {
+    document.getElementById('edForm').action = '/edit_service/'+id;
+    document.getElementById('edName').value = n; document.getElementById('edPrice').value = p;
+    new bootstrap.Modal(document.getElementById('edMod')).show();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card p-3 shadow-sm">
+            <h6 id="formTitle" class="fw-bold text-primary">USER SETTINGS</h6>
+            <form method="POST">
+                <input type="hidden" name="user_id" id="userId">
+                <input type="text" name="u" id="uName" class="form-control mb-2" placeholder="Username" required>
+                <input type="text" name="p" id="uPass" class="form-control mb-2" placeholder="Password" required>
+                <select name="r" id="uRole" class="form-select mb-2">
+                    <option value="Team">Team</option>
+                    <option value="Client">Client</option>
+                    <option value="Owner">Owner</option>
+                </select>
+                <div class="mb-2 small"><label><input type="checkbox" name="st" id="uStats"> View Statistics</label></div>
+                
+                <div class="p-2 bg-light border rounded mb-3">
+                    <label class="small fw-bold text-success"><input type="checkbox" name="is_p" id="isPremium"> Premium Active</label>
+                    <input type="text" name="p_name" id="planName" class="form-control form-control-sm mt-1" placeholder="Manual Plan Name">
+                </div>
+                
+                <button class="btn btn-dark w-100 btn-sm" id="uBtn">Save User</button>
+                <button type="button" class="btn btn-link btn-sm w-100 d-none" id="cancelEdit" onclick="resetForm()">Cancel</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card p-3 shadow-sm">
+            <table class="table table-sm small">
+                <thead><tr><th>User</th><th>Role</th><th>Plan</th><th>Action</th></tr></thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>{{u.username}}</td>
+                        <td>{{u.role}}</td>
+                        <td>{{ u.plan_name if u.is_premium else "None" }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary py-0" onclick="editUser('{{u.id}}','{{u.username}}','{{u.password}}','{{u.role}}',{{ 'true' if u.p_stats else 'false' }}, {{ 'true' if u.is_premium else 'false' }}, '{{u.plan_name or ''}}')">Edit</button>
+                            <a href="/delete/user/{{u.id}}" class="text-danger ms-2">✖</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function editUser(id, u, p, r, st, isP, pName){
+    document.getElementById('userId').value = id;
+    document.getElementById('uName').value = u;
+    document.getElementById('uPass').value = p;
+    document.getElementById('uRole').value = r;
+    document.getElementById('uStats').checked = st;
+    document.getElementById('isPremium').checked = isP;
+    document.getElementById('planName').value = pName;
+    document.getElementById('formTitle').innerText = "EDIT USER DATA";
+    document.getElementById('uBtn').innerText = "Update Now";
+    document.getElementById('cancelEdit').classList.remove('d-none');
+}
+function resetForm(){
+    document.getElementById('userId').value = "";
+    document.getElementById('uName').value = "";
+    document.getElementById('uPass').value = "";
+    document.getElementById('planName').value = "";
+    document.getElementById('uBtn').innerText = "Save User";
+    document.getElementById('cancelEdit').classList.add('d-none');
+}
+</script>
+{% endblock %}
