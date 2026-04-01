@@ -279,4 +279,15 @@ def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], fi
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    with app.app_context():
+        db.create_all()
+        
+        # SAKHT FIX: Sirf admin account check hoga.
+        # Agar koi 'team' ya 'client' banane ka code niche tha, toh use maine hata diya hai.
+        if not User.query.filter_by(username='admin').first():
+            admin = User(username='admin', password='123', role='Owner')
+            db.session.add(admin)
+            db.session.commit()
+            
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
