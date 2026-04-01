@@ -314,24 +314,24 @@ def settings():
 
     return render_template('settings.html', services=Service.query.all(), plans=SubPlan.query.all(), notices=Notice.query.all())
 
-@app.route('/manage_users', methods=['GET', 'POST'])
+@app.route('/')
 @login_required
-def manage_users():
-    if current_user.role != 'Owner': return "Denied"
-    if request.method == 'POST':
-        uid = request.form.get('user_id')
-        if uid:
-            u = User.query.get(uid)
-            u.username, u.password, u.role, u.p_stats = request.form['u'], request.form['p'], request.form['r'], 'st' in request.form
-            u.is_premium = 'is_p' in request.form
-            if u.is_premium:
-                u.plan_name, u.sub_end_date = request.form.get('p_name'), datetime.now() + timedelta(days=30)
-                if not u.sub_start_date: u.sub_start_date = datetime.now()
-            else: u.plan_name, u.is_premium = None, False
-        else:
-            db.session.add(User(username=request.form['u'], password=request.form['p'], role=request.form['r'], p_stats='st' in request.form))
-        db.session.commit(); flash("User Updated!")
-    return render_template('manage_users.html', users=User.query.all())
+def index():
+    # 1. Reset requests check karne ke liye (Naya Logic)
+    resets = User.query.filter_by(reset_req=True).all()
+    
+    # 2. Aapka purana counting wala logic (Bills, Revenue etc.)
+    bills = Bill.query.all()
+    total_revenue = sum(b.total_amount for b in bills)
+    total_bills = len(bills)
+    total_clients = len(ClientData.query.all())
+
+    # Sab kuch ek saath bhej rahe hain
+    return render_template('index.html', 
+                           users_with_reset_req=resets, 
+                           total_revenue=total_revenue, 
+                           total_bills=total_bills, 
+                           total_clients=total_clients)
 
 @app.route('/delete/<string:type>/<int:id>')
 @login_required
@@ -408,6 +408,18 @@ def send_reminder(bill_id, rem_type):
     # https://wa.me/{bill.mobile}?text={msg}
     
     return redirect(request.referrer)
+
+@app.route('/request_password_reset', methods=['POST'])
+def request_password_reset():
+    uname = request.form.get('username')
+    user = User.query.filter_by(username=uname).first()
+    if user:
+        user.reset_req = True # Humne SQL mein ye column banaya tha
+        db.session.commit()
+        flash("Reset request sent to Admin. Please wait for approval.")
+    else:
+        flash("Username not found.")
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     with app.app_context():
