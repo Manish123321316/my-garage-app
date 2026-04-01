@@ -7,12 +7,14 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #f4f7f6; font-family: sans-serif; }
+        body { background: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
+        .navbar { box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .navbar-brand { font-weight: 800; color: #ff3e3e !important; }
         .nav-logout { color: #dc3545 !important; border: 2px solid #dc3545; border-radius: 10px; font-weight: bold; margin-left: 10px; padding: 5px 15px !important; }
         @media (max-width: 768px) {
             .btn { width: 100%; padding: 12px; margin-bottom: 10px; }
-            .nav-logout { margin-left: 0; margin-top: 10px; width: 100%; text-align: center; }
+            .nav-logout { margin-left: 0; margin-top: 15px; width: 100%; text-align: center; }
+            .nav-link { padding: 10px; border-bottom: 1px solid #eee; }
         }
     </style>
 </head>
@@ -24,28 +26,26 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <div class="navbar-nav ms-auto">
+                <div class="navbar-nav ms-auto align-items-center">
                     {% if current_user.is_authenticated %}
                         <a class="nav-link" href="/">Home</a>
 
-                        {# OWNER ONLY #}
+                        {# --- OWNER (ADMIN) TABS --- #}
                         {% if current_user.role == 'Owner' %}
                             <a class="nav-link text-info fw-bold" href="/admin_subs">Subscriptions</a>
                             <a class="nav-link" href="/clients">Clients</a>
+                            <a class="nav-link" href="/view_bills">Bills</a>
+                            <a class="nav-link" href="/create_bill">Create Bill</a>
                             <a class="nav-link text-warning" href="/manage_users">Users</a>
+                            <a class="nav-link text-warning" href="/settings">Settings</a>
                         {% endif %}
 
-                        {# TEAM ONLY #}
+                        {# --- TEAM TABS --- #}
                         {% if current_user.role == 'Team' %}
                             <a class="nav-link text-success fw-bold" href="/create_bill">CREATE BILL</a>
                         {% endif %}
 
-                        {# OWNER ALSO NEEDS CREATE BILL #}
-                        {% if current_user.role == 'Owner' %}
-                            <a class="nav-link" href="/create_bill">Create Bill</a>
-                        {% endif %}
-
-                        <a class="nav-link nav-logout" href="/logout">Logout</a>
+                        <a class="nav-link nav-logout" href="/logout"><i class="fas fa-power-off"></i> Logout</a>
                     {% endif %}
                 </div>
             </div>
@@ -53,7 +53,7 @@
     </nav>
     <div class="container mt-4">
         {% with messages = get_flashed_messages() %}
-            {% if messages %}{% for m in messages %}<div class="alert alert-primary">{{m}}</div>{% endfor %}{% endif %}
+            {% if messages %}{% for m in messages %}<div class="alert alert-primary alert-dismissible fade show">{{m}}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
         {% endwith %}
         {% block content %}{% endblock %}
     </div>
