@@ -388,6 +388,27 @@ def track_history():
             
     return render_template('track_history.html', bills=bills)
 
+@app.route('/send_reminder/<int:bill_id>/<string:rem_type>')
+@login_required
+def send_reminder(bill_id, rem_type):
+    if current_user.role != 'Owner': return "Denied"
+    
+    bill = Bill.query.get(bill_id)
+    if not bill:
+        flash("Bill not found!")
+        return redirect(request.referrer)
+    
+    # Message taiyar karna
+    msg = f"Reminder: Hello {bill.owner_name}, your car {bill.car_number} is due for a {rem_type}. - Jageshwar Car Care"
+    
+    # Abhi ke liye hum sirf screen par flash karenge
+    flash(f"Notification Sent: {msg}")
+    
+    # Tip: Yahan aap WhatsApp ka link bhi generate kar sakte hain:
+    # https://wa.me/{bill.mobile}?text={msg}
+    
+    return redirect(request.referrer)
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
