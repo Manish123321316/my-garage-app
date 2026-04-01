@@ -165,7 +165,7 @@ def logout(): logout_user(); return redirect(url_for('login'))
 #         notices = Notice.query.filter(Notice.visible_to.in_(['All', 'Client'])).all()
 #         return render_template('client_dash.html', bookings=bookings, pay_reqs=pay_reqs, notices=notices, services=Service.query.all(), plans=SubPlan.query.all())
     
-    stats, pay_reqs = None, []
+    
     if current_user.role == 'Owner' or current_user.p_stats:
         inc_bill = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
         stats = {'clients': ClientData.query.count(), 'bills': Bill.query.count(), 'income': inc_bill}
