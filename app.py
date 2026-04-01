@@ -1,11 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
+import os
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from fpdf import FPDF
-from werkzeug.utils import secure_filename
-import os
-import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta  # <--- YE LINE JAROORI HAI
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///garage_v30_final.db'
