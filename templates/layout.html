@@ -49,6 +49,11 @@
                                 <a class="nav-link text-info fw-bold" href="/admin_subs">Subscriptions</a>
                                 <a class="nav-link text-warning" href="/settings">Settings</a>
                                 <a class="nav-link text-warning" href="/manage_users">Users</a>
+                            {# --- TEAM KO SIRF BILL CREATE DIKHEGA --- #}
+                            {% if current_user.role == 'Team' %}
+                                <a class="nav-link fw-bold text-success" href="/create_bill">
+                                    <i class="fas fa-plus-circle"></i> CREATE BILL
+                                </a>
                             {% endif %}
                         {% endif %}
                         <a class="nav-link logout-link" href="/logout"><i class="fas fa-power-off"></i> Logout</a>
