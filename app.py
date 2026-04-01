@@ -56,10 +56,15 @@ class ClientData(db.Model):
     owner_name = db.Column(db.String(100))
     mobile = db.Column(db.String(15))
 
+# class Service(db.Model):
+#     id = db.Column(db.Integer, primary_key=True)
+#     name = db.Column(db.String(100), unique=True, nullable=False)
+#     price = db.Column(db.Float, nullable=False)  # default_price ki jagah sirf price rakhein
+
 class Service(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)
-    price = db.Column(db.Float, nullable=False)  # default_price ki jagah sirf price rakhein
+    name = db.Column(db.String(100), unique=True)
+    default_price = db.Column(db.Float)
 
 class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
