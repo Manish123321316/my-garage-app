@@ -5,7 +5,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-123'
+app.config['SECRET_KEY'] = 'jageshwar-car-care-key-786'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///garage_v30_final.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -13,7 +13,7 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# --- Models ---
+# --- SAARE MODELS (DATA) ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -25,6 +25,19 @@ class User(UserMixin, db.Model):
     sub_end_date = db.Column(db.DateTime)
     mobile = db.Column(db.String(15))
 
+class Service(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
+    price = db.Column(db.Float)
+
+class Bill(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    client_name = db.Column(db.String(100))
+    mobile = db.Column(db.String(15))
+    total_amount = db.Column(db.Float)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+    filename = db.Column(db.String(100))
+
 class SubPlan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50))
@@ -35,7 +48,7 @@ class SubPlan(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# --- Routes ---
+# --- SAARE ROUTES (PAGES) ---
 
 @app.route('/')
 @login_required
@@ -58,19 +71,27 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-@app.route('/create_bill')
+@app.route('/create_bill', methods=['GET', 'POST'])
 @login_required
 def create_bill():
-    # Owner aur Team dono bill bana sakte hain
     if current_user.role not in ['Owner', 'Team']:
         return redirect(url_for('index'))
-    return render_template('create_bill.html')
+    services = Service.query.all()
+    return render_template('create_bill.html', services=services)
+
+@app.route('/view_bills')
+@login_required
+def view_bills():
+    if current_user.role != 'Owner':
+        flash("Only Owner can view all bills")
+        return redirect(url_for('index'))
+    bills = Bill.query.order_by(Bill.date.desc()).all()
+    return render_template('view_bills.html', bills=bills)
 
 @app.route('/clients')
 @login_required
 def clients():
     if current_user.role != 'Owner':
-        flash("Access Denied!")
         return redirect(url_for('index'))
     users = User.query.filter_by(role='Client').all()
     return render_template('clients.html', users=users)
@@ -89,17 +110,25 @@ def admin_subs():
 def manage_users():
     if current_user.role != 'Owner':
         return redirect(url_for('index'))
-    all_users = User.query.all()
-    return render_template('manage_users.html', users=all_users)
+    users = User.query.all()
+    return render_template('manage_users.html', users=users)
 
-# --- Database Initialization ---
+@app.route('/settings')
+@login_required
+def settings():
+    if current_user.role != 'Owner':
+        return redirect(url_for('index'))
+    services = Service.query.all()
+    plans = SubPlan.query.all()
+    return render_template('settings.html', services=services, plans=plans)
+
+# --- DATABASE SETUP ---
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        # Fresh Start: Sirf admin rahega
+        # Admin account creation
         if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin', password='123', role='Owner')
-            db.session.add(admin)
+            db.session.add(User(username='admin', password='123', role='Owner'))
             db.session.commit()
             
     port = int(os.environ.get("PORT", 10000))
