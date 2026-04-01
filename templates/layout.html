@@ -49,34 +49,33 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="navbar-nav ms-auto align-items-center">
-                    {% if current_user.is_authenticated %}
-                        <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
+    {% if current_user.is_authenticated %}
+        <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
 
-                        {# --- OWNER / ADMIN TABS --- #}
-                        {% if current_user.role == 'Owner' %}
-                            <a class="nav-link text-info fw-bold" href="/admin_subs"><i class="fas fa-crown"></i> Subscriptions</a>
-                            <a class="nav-link" href="/clients"><i class="fas fa-users"></i> Clients</a>
-                            <a class="nav-link" href="/view_bills"><i class="fas fa-file-invoice"></i> All Bills</a>
-                            <a class="nav-link text-warning" href="/manage_users"><i class="fas fa-user-shield"></i> Users</a>
-                            <a class="nav-link text-warning" href="/settings"><i class="fas fa-cog"></i> Settings</a>
-                        {% endif %}
+        {# --- OWNER / ADMIN TABS --- #}
+        {% if current_user.role == 'Owner' %}
+            <a class="nav-link text-info fw-bold" href="/admin_subs"><i class="fas fa-crown"></i> Subscriptions</a>
+            <a class="nav-link" href="/clients"><i class="fas fa-users"></i> Clients</a>
+            <a class="nav-link" href="/view_bills"><i class="fas fa-file-invoice"></i> All Bills</a>
+            <a class="nav-link text-warning" href="/manage_users"><i class="fas fa-user-shield"></i> Users</a>
+        {% endif %}
 
-                        {# --- TEAM TABS (ONLY BILLING) --- #}
-                        {% if current_user.role == 'Team' %}
-                            <a class="nav-link fw-bold text-success" href="/create_bill">
-                                <i class="fas fa-plus-circle"></i> CREATE NEW BILL
-                            </a>
-                        {% endif %}
+        {# --- TEAM TABS (SIRF CREATE BILL) --- #}
+        {% if current_user.role == 'Team' %}
+            <a class="nav-link fw-bold text-success" href="/create_bill">
+                <i class="fas fa-plus-circle"></i> CREATE NEW BILL
+            </a>
+        {% endif %}
 
-                        {# --- CLIENT TABS --- #}
-                        {% if current_user.role == 'Client' %}
-                            <a class="nav-link" href="/client_dash">My Dashboard</a>
-                        {% endif %}
+        {# --- CLIENT TABS (FIXED LINK) --- #}
+        {% if current_user.role == 'Client' %}
+            <a class="nav-link" href="/"><i class="fas fa-tachometer-alt"></i> My Dashboard</a>
+        {% endif %}
 
-                        {# --- LOGOUT BUTTON --- #}
-                        <a class="nav-link nav-logout" href="/logout"><i class="fas fa-power-off"></i> LOGOUT</a>
-                    {% endif %}
-                </div>
+        {# --- LOGOUT BUTTON --- #}
+        <a class="nav-link nav-logout" href="/logout"><i class="fas fa-power-off"></i> LOGOUT</a>
+    {% endif %}
+</div>
             </div>
         </div>
     </nav>
