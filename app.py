@@ -155,15 +155,15 @@ def logout(): logout_user(); return redirect(url_for('login'))
 
 @app.route('/')
 @login_required
-def index():
-    if current_user.role == 'Client':
-        if current_user.is_premium and datetime.now() > current_user.sub_end_date:
-            current_user.is_premium = False
-            db.session.commit()
-        bookings = Booking.query.filter_by(client_name=current_user.username).order_by(Booking.id.desc()).all()
-        pay_reqs = PaymentRequest.query.filter_by(client_id=current_user.id).order_by(PaymentRequest.id.desc()).all()
-        notices = Notice.query.filter(Notice.visible_to.in_(['All', 'Client'])).all()
-        return render_template('client_dash.html', bookings=bookings, pay_reqs=pay_reqs, notices=notices, services=Service.query.all(), plans=SubPlan.query.all())
+# def index():
+#     if current_user.role == 'Client':
+#         if current_user.is_premium and datetime.now() > current_user.sub_end_date:
+#             current_user.is_premium = False
+#             db.session.commit()
+#         bookings = Booking.query.filter_by(client_name=current_user.username).order_by(Booking.id.desc()).all()
+#         pay_reqs = PaymentRequest.query.filter_by(client_id=current_user.id).order_by(PaymentRequest.id.desc()).all()
+#         notices = Notice.query.filter(Notice.visible_to.in_(['All', 'Client'])).all()
+#         return render_template('client_dash.html', bookings=bookings, pay_reqs=pay_reqs, notices=notices, services=Service.query.all(), plans=SubPlan.query.all())
     
     stats, pay_reqs = None, []
     if current_user.role == 'Owner' or current_user.p_stats:
@@ -195,8 +195,6 @@ def approve_sub():
         client.admin_reply = "Rejected: " + request.form['reply']
     db.session.commit(); flash("Subscription Processed!"); return redirect(url_for('index'))
 
-@app.route('/generate_bill', methods=['POST'])
-@login_required
 @app.route('/generate_bill', methods=['POST'])
 @login_required
 def generate_bill():
