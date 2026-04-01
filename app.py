@@ -197,13 +197,26 @@ def approve_sub():
 
 @app.route('/generate_bill', methods=['POST'])
 @login_required
+@app.route('/generate_bill', methods=['POST'])
+@login_required
 def generate_bill():
     car = request.form['car_number'].upper()
     model = request.form['car_model']
     owner = request.form['owner_name']
+    mobile = request.form['mobile']  # Naya: Mobile number le rahe hain
     total = float(request.form['grand_total_val'])
-    if not ClientData.query.filter_by(car_number=car).first():
-        db.session.add(ClientData(car_number=car, owner_name=owner, mobile=request.form['mobile']))
+    
+    # 1. Reward Points Calculation (Har ₹100 par 1 Point)
+    earned_points = total / 100
+    
+    # 2. ClientData Update/Add (Purana Logic + Mobile)
+    client_check = ClientData.query.filter_by(car_number=car).first()
+    if not client_check:
+        db.session.add(ClientData(car_number=car, owner_name=owner, mobile=mobile))
+    else:
+        client_check.mobile = mobile # Mobile update kar rahe hain agar badla ho
+    
+    # 3. Items list taiyar karna (Purana Logic)
     services = request.form.getlist('service_names[]')
     prices = request.form.getlist('service_prices[]')
     discs = request.form.getlist('service_discs[]')
@@ -212,21 +225,36 @@ def generate_bill():
     for i in range(len(services)):
         if services[i] != "Select":
             items.append({'name': services[i], 'price': prices[i], 'disc': discs[i], 'total': totals[i]})
+    
+    # 4. PDF Generate karna (Purana Logic)
     fname = f"Bill_{car}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
     path = os.path.join(app.config['BILL_FOLDER'], fname)
     pdf = FPDF(); pdf.add_page(); pdf.set_font("Arial", 'B', 16)
     pdf.cell(190, 10, "JAGESHWAR CAR CARE", ln=True, align='C')
-    pdf.set_font("Arial", '', 10); pdf.cell(190, 5, "Professional Car Service & Maintenance", ln=True, align='C')
-    pdf.ln(10); pdf.set_font("Arial", 'B', 11); pdf.cell(100, 8, f"Customer: {owner}"); pdf.cell(90, 8, f"Date: {datetime.now().strftime('%d-%m-%Y %H:%M')}", ln=True, align='R')
-    pdf.cell(100, 8, f"Car No: {car}"); pdf.cell(90, 8, f"Model: {model}", ln=True, align='R')
-    pdf.ln(5); pdf.set_fill_color(240, 240, 240); pdf.set_font("Arial", 'B', 10)
-    pdf.cell(80, 10, " Service Description", 1, 0, 'L', True); pdf.cell(35, 10, " Price", 1, 0, 'C', True); pdf.cell(35, 10, " Discount %", 1, 0, 'C', True); pdf.cell(40, 10, " Total", 1, 1, 'C', True)
-    pdf.set_font("Arial", '', 10)
-    for item in items:
-        pdf.cell(80, 10, f" {item['name']}", 1); pdf.cell(35, 10, f" {item['price']}", 1, 0, 'C'); pdf.cell(35, 10, f" {item['disc']}%", 1, 0, 'C'); pdf.cell(40, 10, f" Rs. {item['total']}", 1, 1, 'C')
-    pdf.set_font("Arial", 'B', 12); pdf.cell(150, 12, " GRAND TOTAL", 1, 0, 'R', True); pdf.cell(40, 12, f" Rs. {total}", 1, 1, 'C', True); pdf.output(path)
-    db.session.add(Bill(car_number=car, car_model=model, owner_name=owner, total_amount=total, filename=fname, details_json=json.dumps(items)))
-    db.session.commit(); flash("Bill Generated!"); return redirect(url_for('index'))
+    # ... (PDF ka baaki design wahi rahega jo aapke paas hai) ...
+    pdf.output(path)
+    
+    # 5. Database mein Bill Save karna (Naye columns ke saath)
+    new_bill = Bill(
+        car_number=car, 
+        car_model=model, 
+        owner_name=owner, 
+        mobile=mobile, 
+        total_amount=total, 
+        points_earned=earned_points, # Points save ho rahe hain
+        filename=fname, 
+        details_json=json.dumps(items)
+    )
+    db.session.add(new_bill)
+    
+    # 6. Agar User ka Account hai, toh uske Profile mein Points jodna
+    user = User.query.filter_by(username=owner).first()
+    if user:
+        user.reward_points += earned_points
+    
+    db.session.commit()
+    flash(f"Bill Generated! {earned_points} Reward Points Added.")
+    return redirect(url_for('index'))
 
 @app.route('/view_bills')
 @login_required
@@ -346,6 +374,19 @@ def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], fi
 
 @app.route('/clients')
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
+
+@app.route('/track_history', methods=['GET', 'POST'])
+def track_history():
+    bills = None
+    if request.method == 'POST':
+        car_no = request.form.get('car_number').upper()
+        mob = request.form.get('mobile')
+        # Matching Car Number and Mobile
+        bills = Bill.query.filter_by(car_number=car_no, mobile=mob).order_by(Bill.id.desc()).all()
+        if not bills:
+            flash("No service history found for this Car and Mobile number.")
+            
+    return render_template('track_history.html', bills=bills)
 
 if __name__ == '__main__':
     with app.app_context():
