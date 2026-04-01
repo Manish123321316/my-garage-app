@@ -279,6 +279,7 @@ def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], fi
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
 
 # --- Add this route BEFORE the if __name__ block ---
+# --- Ye naya Route (Subcriptions Tab ke liye) ---
 @app.route('/admin_subs')
 @login_required
 def admin_subs():
@@ -287,11 +288,11 @@ def admin_subs():
     total_rev = sum([SubPlan.query.filter_by(name=u.plan_name).first().price for u in premium_users if SubPlan.query.filter_by(name=u.plan_name).first()])
     return render_template('admin_subs.html', users=premium_users, revenue=total_rev, datetime=datetime)
 
-# --- Updated Bottom Part ---
+# --- Ye Bottom Part (User Fix ke liye) ---
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        # Fix for User deletion: Sirf admin hi banega default mein
+        # Isse faltu users wapas nahi aayenge, sirf admin banega
         if not User.query.filter_by(username='admin').first():
             db.session.add(User(username='admin', password='123', role='Owner'))
             db.session.commit()
