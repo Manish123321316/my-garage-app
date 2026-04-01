@@ -1,0 +1,25 @@
+<h3>Track My Car Service History</h3>
+<form method="POST">
+    <input type="text" name="car_number" placeholder="Car Number (e.g. UP14-1234)" required>
+    <input type="text" name="mobile" placeholder="Mobile Number" required>
+    <button type="submit">View History</button>
+</form>
+
+{% if bills %}
+    <table border="1">
+        <tr>
+            <th>Date</th>
+            <th>Work Done</th>
+            <th>Amount</th>
+            <th>Bill</th>
+        </tr>
+        {% for bill in bills %}
+        <tr>
+            <td>{{ bill.date_time.strftime('%d-%m-%Y') }}</td>
+            <td>History Available</td>
+            <td>Rs. {{ bill.total_amount }}</td>
+            <td><a href="{{ url_for('view_pdf', filename=bill.filename) }}">Download PDF</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+{% endif %}
