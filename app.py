@@ -15,6 +15,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'jageshwar_ultimate_v30_pro'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['BILL_FOLDER'] = 'static/bills'
+# Ye 4 lines speed badha dengi
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+}
 db = SQLAlchemy(app)
 
 for folder in [app.config['UPLOAD_FOLDER'], app.config['BILL_FOLDER']]:
