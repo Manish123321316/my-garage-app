@@ -8,7 +8,8 @@ import json
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///garage_v30_final.db'
+# Naya Neon Database Link
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neondb_owner:npg_L40ycfqeIAGF@ep-fragrant-term-a1v7voar-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
 app.config['SECRET_KEY'] = 'jageshwar_ultimate_v30_pro'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['BILL_FOLDER'] = 'static/bills'
