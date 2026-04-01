@@ -291,21 +291,30 @@ def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], fi
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
 
 # --- Add this route BEFORE the if __name__ block ---
+# ... baaki purana code upar rehne dein, sirf routes aur last part update karein ...
+
 @app.route('/admin_subs')
 @login_required
 def admin_subs():
     if current_user.role != 'Owner': return redirect(url_for('index'))
+    # Sirf wo users jo Premium hain
     premium_users = User.query.filter_by(role='Client', is_premium=True).all()
-    total_rev = sum([SubPlan.query.filter_by(name=u.plan_name).first().price for u in premium_users if SubPlan.query.filter_by(name=u.plan_name).first()])
+    
+    # Revenue Calculation
+    total_rev = 0
+    for u in premium_users:
+        plan = SubPlan.query.filter_by(name=u.plan_name).first()
+        if plan: total_rev += plan.price
+        
     return render_template('admin_subs.html', users=premium_users, revenue=total_rev, datetime=datetime)
 
-# --- Updated Bottom Part ---
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        # Fix for User deletion: Sirf admin hi banega default mein
+        # FIX: Sirf Admin banega, baki koi extra user apne aap nahi banega
         if not User.query.filter_by(username='admin').first():
-            db.session.add(User(username='admin', password='123', role='Owner'))
+            admin = User(username='admin', password='123', role='Owner', p_stats=True)
+            db.session.add(admin)
             db.session.commit()
             
     port = int(os.environ.get("PORT", 10000))
