@@ -289,22 +289,24 @@ def settings():
 
 @app.route('/')
 @login_required
+@app.route('/')
+@login_required
 def index():
-    # 1. Reset requests check karne ke liye (Naya Logic)
+    # 1. Stats Calculate Karein
+    inc_bill = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
+    stats = {
+        'clients': ClientData.query.count(), 
+        'bills': Bill.query.count(), 
+        'income': inc_bill
+    }
+    
+    # 2. Reset Requests aur Baaki Data
     resets = User.query.filter_by(reset_req=True).all()
     
-    # 2. Aapka purana counting wala logic (Bills, Revenue etc.)
-    bills = Bill.query.all()
-    total_revenue = sum(b.total_amount for b in bills)
-    total_bills = len(bills)
-    total_clients = len(ClientData.query.all())
-
-    # Sab kuch ek saath bhej rahe hain
+    # 3. Yahan Dhyan Dein: stats=stats hona zaroori hai!
     return render_template('index.html', 
-                           users_with_reset_req=resets, 
-                           total_revenue=total_revenue, 
-                           total_bills=total_bills, 
-                           total_clients=total_clients)
+                           stats=stats, 
+                           users_with_reset_req=resets)
 
 @app.route('/delete/<string:type>/<int:id>')
 @login_required
