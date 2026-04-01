@@ -292,10 +292,10 @@ def admin_subs():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        # Isse faltu users wapas nahi aayenge, sirf admin banega
+        # Puraane faltu users ko hatane ke liye (Sirf ek baar chalega)
+        # User.query.filter(User.username != 'admin').delete() 
+        
+        # Sirf admin check karein
         if not User.query.filter_by(username='admin').first():
             db.session.add(User(username='admin', password='123', role='Owner'))
             db.session.commit()
-            
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
