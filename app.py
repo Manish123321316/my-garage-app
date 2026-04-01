@@ -21,6 +21,18 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+@app.route('/admin_subs')
+@login_required
+def admin_subs():
+    if current_user.role != 'Owner': return redirect(url_for('index'))
+    premium_users = User.query.filter_by(role='Client', is_premium=True).all()
+    # Revenue calculation
+    total_revenue = 0
+    for u in premium_users:
+        plan = SubPlan.query.filter_by(name=u.plan_name).first()
+        if plan: total_revenue += plan.price
+    return render_template('admin_subs.html', users=premium_users, revenue=total_revenue, datetime=datetime)
+
 # --- Models ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
