@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card p-4 shadow-sm bg-primary text-white border-0 mb-4">
+    <div class="d-flex justify-content-between">
+        <div>
+            <h6 class="opacity-75">Subscription Revenue</h6>
+            <h2 class="fw-bold mb-0">Rs. {{revenue}}</h2>
+        </div>
+        <i class="fas fa-gem fa-3x opacity-25"></i>
+    </div>
+</div>
+
+<div class="card p-3 border-0 shadow-sm">
+    <h5 class="fw-bold mb-3 text-dark px-2">Premium Members Detail</h5>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Member</th>
+                    <th>Plan Name</th>
+                    <th>Expiry Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td><b>{{u.username}}</b></td>
+                    <td><span class="badge bg-info text-dark">{{u.plan_name}}</span></td>
+                    <td><small>{{u.sub_end_date.strftime('%d-%m-%Y') if u.sub_end_date else '-'}}</small></td>
+                    <td>
+                        {% if u.sub_end_date and u.sub_end_date > datetime.now() %}
+                        <span class="badge bg-success">ACTIVE</span>
+                        {% else %}
+                        <span class="badge bg-danger">EXPIRED</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
