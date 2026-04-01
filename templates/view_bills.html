@@ -14,6 +14,8 @@
                     <td class="fw-bold text-success">Rs. {{b.total_amount}}</td>
                     <td>
                         <a href="/view_pdf/{{b.filename}}" target="_blank" class="btn btn-sm btn-info text-white shadow-sm"><i class="fas fa-file-pdf"></i> View Bill</a>
+                        <a href="{{ url_for('send_reminder', bill_id=bill.id, rem_type='Service') }}" class="btn btn-sm btn-warning">Service Remind</a>
+                        <a href="{{ url_for('send_reminder', bill_id=bill.id, rem_type='Wash') }}" class="btn btn-sm btn-info">Wash Remind</a>
                     </td>
                 </tr>
                 {% endfor %}
