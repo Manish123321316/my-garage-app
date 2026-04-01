@@ -34,7 +34,10 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True)
     password = db.Column(db.String(50))
+    mobile = db.Column(db.String(15))  # Naya
     role = db.Column(db.String(20)) 
+    reward_points = db.Column(db.Float, default=0.0)  # Naya
+    reset_req = db.Column(db.Boolean, default=False)  # Naya
     p_stats = db.Column(db.Boolean, default=False)
     is_premium = db.Column(db.Boolean, default=False)
     plan_name = db.Column(db.String(100))
@@ -99,7 +102,10 @@ class Bill(db.Model):
     car_number = db.Column(db.String(20))
     car_model = db.Column(db.String(50))
     owner_name = db.Column(db.String(100))
+    mobile = db.Column(db.String(15))  # Naya
     total_amount = db.Column(db.Float)
+    points_earned = db.Column(db.Float, default=0.0)  # Naya
+    points_redeemed = db.Column(db.Float, default=0.0)  # Naya
     details_json = db.Column(db.Text)
     filename = db.Column(db.String(200))
     date_time = db.Column(db.DateTime, default=datetime.now)
