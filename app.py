@@ -229,20 +229,50 @@ def view_bills():
     m_sum = db.session.query(db.func.sum(Bill.total_amount)).filter(db.func.date(Bill.date_time) >= start_month).scalar() or 0
     return render_template('view_bills.html', bills=bills, t_sum=t_sum, w_sum=w_sum, m_sum=m_sum)
 
+# @app.route('/settings', methods=['GET', 'POST'])
+# @login_required
+# def settings():
+#     if current_user.role != 'Owner': return "Denied"
+#     if request.method == 'POST':
+#         act = request.form.get('action')
+#         if act == 'add_service': db.session.add(Service(name=request.form['name'], default_price=request.form['price']))
+#         elif act == 'add_plan':
+#             f = request.files['qr_image']
+#             fname = secure_filename(f.filename)
+#             f.save(os.path.join(app.config['UPLOAD_FOLDER'], fname))
+#             db.session.add(SubPlan(name=request.form['name'], price=request.form['price'], details=request.form['details'], qr_image=fname))
+#         elif act == 'add_notice': db.session.add(Notice(title=request.form['title'], content=request.form['content'], visible_to=request.form['visible'], color=request.form['color']))
+#         db.session.commit(); flash("Added!")
+#     return render_template('settings.html', services=Service.query.all(), plans=SubPlan.query.all(), notices=Notice.query.all())
+
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
     if current_user.role != 'Owner': return "Denied"
     if request.method == 'POST':
         act = request.form.get('action')
-        if act == 'add_service': db.session.add(Service(name=request.form['name'], default_price=request.form['price']))
+        
+        # YAHAN BADLAV HAI: 'default_price' ki jagah sirf 'price' likhna hai
+        if act == 'add_service': 
+            name = request.form.get('name')
+            price = request.form.get('price')
+            if name and price:
+                db.session.add(Service(name=name, price=float(price)))
+        
         elif act == 'add_plan':
             f = request.files['qr_image']
-            fname = secure_filename(f.filename)
-            f.save(os.path.join(app.config['UPLOAD_FOLDER'], fname))
-            db.session.add(SubPlan(name=request.form['name'], price=request.form['price'], details=request.form['details'], qr_image=fname))
-        elif act == 'add_notice': db.session.add(Notice(title=request.form['title'], content=request.form['content'], visible_to=request.form['visible'], color=request.form['color']))
-        db.session.commit(); flash("Added!")
+            if f:
+                fname = secure_filename(f.filename)
+                f.save(os.path.join(app.config['UPLOAD_FOLDER'], fname))
+                db.session.add(SubPlan(name=request.form['name'], price=request.form['price'], details=request.form['details'], qr_image=fname))
+        
+        elif act == 'add_notice': 
+            db.session.add(Notice(title=request.form['title'], content=request.form['content'], visible_to=request.form['visible'], color=request.form['color']))
+            
+        db.session.commit()
+        flash("Added successfully!")
+        return redirect(url_for('settings')) # Refresh taaki data dikhe
+
     return render_template('settings.html', services=Service.query.all(), plans=SubPlan.query.all(), notices=Notice.query.all())
 
 @app.route('/manage_users', methods=['GET', 'POST'])
