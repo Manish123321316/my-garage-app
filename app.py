@@ -58,8 +58,8 @@ class ClientData(db.Model):
 
 class Service(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True)
-    default_price = db.Column(db.Float)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    price = db.Column(db.Float, nullable=False)  # default_price ki jagah sirf price rakhein
 
 class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
