@@ -1,39 +1,65 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Jageshwar Car Care</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #f8f9fa; }
-        .card { border-radius: 15px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .nav-link { font-weight: 500; }
+        body { background: #f4f7f6; font-family: sans-serif; overflow-x: hidden; }
+        .navbar { box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .navbar-brand { font-weight: 800; color: #ff3e3e !important; }
+        .card { border-radius: 12px; margin-bottom: 15px; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        
+        /* Mobile UI Fixes */
+        @media (max-width: 768px) {
+            .btn { padding: 12px; font-weight: bold; width: 100%; margin-top: 5px; }
+            input, select, textarea { font-size: 16px !important; padding: 10px !important; }
+            .navbar-nav { padding-bottom: 15px; }
+        }
+        
+        /* Separate Logout Style */
+        .logout-link { 
+            color: #dc3545 !important; 
+            border: 1px solid #dc3545; 
+            border-radius: 8px; 
+            padding: 8px 20px !important;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .logout-link:hover { background: #dc3545; color: white !important; }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="/">JAGESHWAR CAR CARE</a>
-            <div class="navbar-nav ms-auto">
-                {% if current_user.is_authenticated %}
-                    <a class="nav-link" href="/">Dashboard</a>
-                    {% if current_user.role != 'Client' and current_user.role != 'Team' %}
-                        <a class="nav-link" href="/clients">Clients</a>
-                        <a class="nav-link" href="/view_bills">Bills</a>
-                        {% if current_user.role == 'Owner' %}
-                            <a class="nav-link text-warning" href="/settings">Settings</a>
-                            <a class="nav-link text-warning" href="/manage_users">Users</a>
+            <a class="navbar-brand" href="/">JAGESHWAR CARE</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto align-items-center">
+                    {% if current_user.is_authenticated %}
+                        <a class="nav-link" href="/">Home</a>
+                        {% if current_user.role != 'Client' %}
+                            <a class="nav-link" href="/clients">Clients</a>
+                            <a class="nav-link" href="/view_bills">Bills</a>
+                            {% if current_user.role == 'Owner' %}
+                                <a class="nav-link text-info fw-bold" href="/admin_subs">Subscriptions</a>
+                                <a class="nav-link text-warning" href="/settings">Settings</a>
+                                <a class="nav-link text-warning" href="/manage_users">Users</a>
+                            {% endif %}
                         {% endif %}
+                        <a class="nav-link logout-link" href="/logout"><i class="fas fa-power-off"></i> Logout</a>
                     {% endif %}
-                    <a class="nav-link text-danger" href="/logout">Logout</a>
-                {% endif %}
+                </div>
             </div>
         </div>
     </nav>
-    <div class="container">
+    <div class="container mt-3">
         {% with messages = get_flashed_messages() %}
-            {% if messages %}{% for m in messages %}<div class="alert alert-success shadow-sm border-0">{{m}}</div>{% endfor %}{% endif %}
+            {% if messages %}{% for m in messages %}<div class="alert alert-info alert-dismissible fade show">{{m}}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
         {% endwith %}
         {% block content %}{% endblock %}
     </div>
