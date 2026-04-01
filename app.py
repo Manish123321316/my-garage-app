@@ -61,10 +61,30 @@ class ClientData(db.Model):
 #     name = db.Column(db.String(100), unique=True, nullable=False)
 #     price = db.Column(db.Float, nullable=False)  # default_price ki jagah sirf price rakhein
 
+# 1. Model aisa hona chahiye
 class Service(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True)
-    default_price = db.Column(db.Float)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    price = db.Column(db.Float, nullable=False) # Iska naam 'price' hi rakhein
+
+# 2. Add Service ka Route aisa hona chahiye
+@app.route('/add_service', methods=['POST'])
+@login_required
+def add_service():
+    if current_user.role != 'Owner':
+        return redirect(url_for('index'))
+    
+    name = request.form.get('name')
+    # Yahan dhyan dein: 'price' wahi hona chahiye jo HTML form mein 'name' hai
+    price = request.form.get('price') 
+    
+    if name and price:
+        new_service = Service(name=name, price=float(price))
+        db.session.add(new_service)
+        db.session.commit()
+        flash("Service added successfully!")
+    
+    return redirect(url_for('settings'))
 
 class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
