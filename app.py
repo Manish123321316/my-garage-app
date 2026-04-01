@@ -166,17 +166,17 @@ def logout(): logout_user(); return redirect(url_for('login'))
 #         return render_template('client_dash.html', bookings=bookings, pay_reqs=pay_reqs, notices=notices, services=Service.query.all(), plans=SubPlan.query.all())
     
     
-    if current_user.role == 'Owner' or current_user.p_stats:
-        inc_bill = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
-        stats = {'clients': ClientData.query.count(), 'bills': Bill.query.count(), 'income': inc_bill}
-        raw_reqs = PaymentRequest.query.filter_by(status='Pending').all()
-        for r in raw_reqs:
-            p = SubPlan.query.get(r.plan_id)
-            pay_reqs.append({'id': r.id, 'user': r.client_username, 'plan': r.plan_name, 'details': p.details if p else ""})
+    # if current_user.role == 'Owner' or current_user.p_stats:
+    #     inc_bill = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
+    #     stats = {'clients': ClientData.query.count(), 'bills': Bill.query.count(), 'income': inc_bill}
+    #     raw_reqs = PaymentRequest.query.filter_by(status='Pending').all()
+    #     for r in raw_reqs:
+    #         p = SubPlan.query.get(r.plan_id)
+    #         pay_reqs.append({'id': r.id, 'user': r.client_username, 'plan': r.plan_name, 'details': p.details if p else ""})
 
-    pending_bookings = Booking.query.filter_by(status='Pending').all()
-    feedbacks = Feedback.query.order_by(Feedback.id.desc()).all()
-    return render_template('index.html', stats=stats, bookings=pending_bookings, pay_reqs=pay_reqs, services=Service.query.all(), feedbacks=feedbacks)
+    # pending_bookings = Booking.query.filter_by(status='Pending').all()
+    # feedbacks = Feedback.query.order_by(Feedback.id.desc()).all()
+    # return render_template('index.html', stats=stats, bookings=pending_bookings, pay_reqs=pay_reqs, services=Service.query.all(), feedbacks=feedbacks)
 
 @app.route('/approve_sub', methods=['POST'])
 @login_required
