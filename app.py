@@ -394,6 +394,29 @@ def request_password_reset():
         flash("Username not found.")
     return redirect(url_for('login'))
 
+@app.route('/users')
+@login_required
+def manage_users():
+    if current_user.role != 'Owner': return "Access Denied"
+    all_users = User.query.all()
+    return render_template('manage_users.html', users=all_users)
+
+@app.route('/delete_user/<int:id>')
+@login_required
+def delete_user(id):
+    if current_user.role != 'Owner': return "Denied"
+    u = User.query.get(id)
+    if u and u.username != 'admin':
+        db.session.delete(u)
+        db.session.commit()
+    return redirect(url_for('manage_users'))
+
+@app.route('/clients')
+@login_required
+def manage_clients():
+    clients = ClientData.query.all()
+    return render_template('clients.html', clients=clients)
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
