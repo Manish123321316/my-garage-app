@@ -153,31 +153,6 @@ def login():
 @app.route('/logout')
 def logout(): logout_user(); return redirect(url_for('login'))
 
-@app.route('/')
-@login_required
-# def index():
-#     if current_user.role == 'Client':
-#         if current_user.is_premium and datetime.now() > current_user.sub_end_date:
-#             current_user.is_premium = False
-#             db.session.commit()
-#         bookings = Booking.query.filter_by(client_name=current_user.username).order_by(Booking.id.desc()).all()
-#         pay_reqs = PaymentRequest.query.filter_by(client_id=current_user.id).order_by(PaymentRequest.id.desc()).all()
-#         notices = Notice.query.filter(Notice.visible_to.in_(['All', 'Client'])).all()
-#         return render_template('client_dash.html', bookings=bookings, pay_reqs=pay_reqs, notices=notices, services=Service.query.all(), plans=SubPlan.query.all())
-    
-    
-    # if current_user.role == 'Owner' or current_user.p_stats:
-    #     inc_bill = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
-    #     stats = {'clients': ClientData.query.count(), 'bills': Bill.query.count(), 'income': inc_bill}
-    #     raw_reqs = PaymentRequest.query.filter_by(status='Pending').all()
-    #     for r in raw_reqs:
-    #         p = SubPlan.query.get(r.plan_id)
-    #         pay_reqs.append({'id': r.id, 'user': r.client_username, 'plan': r.plan_name, 'details': p.details if p else ""})
-
-    # pending_bookings = Booking.query.filter_by(status='Pending').all()
-    # feedbacks = Feedback.query.order_by(Feedback.id.desc()).all()
-    # return render_template('index.html', stats=stats, bookings=pending_bookings, pay_reqs=pay_reqs, services=Service.query.all(), feedbacks=feedbacks)
-
 @app.route('/approve_sub', methods=['POST'])
 @login_required
 def approve_sub():
