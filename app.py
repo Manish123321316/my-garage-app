@@ -344,13 +344,25 @@ def clients(): return render_template('clients.html', clients=ClientData.query.a
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        
-        # SAKHT FIX: Sirf admin account check hoga.
-        # Agar koi 'team' ya 'client' banane ka code niche tha, toh use maine hata diya hai.
+        # Admin check
         if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin', password='123', role='Owner')
-            db.session.add(admin)
+            db.session.add(User(username='admin', password='123', role='Owner', p_stats=True))
             db.session.commit()
             
+    # YEH DO LINES SABSE ZAROORI HAIN RENDER KE LIYE
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
+
+# if __name__ == '__main__':
+#     with app.app_context():
+#         db.create_all()
+        
+#         # SAKHT FIX: Sirf admin account check hoga.
+#         # Agar koi 'team' ya 'client' banane ka code niche tha, toh use maine hata diya hai.
+#         if not User.query.filter_by(username='admin').first():
+#             admin = User(username='admin', password='123', role='Owner')
+#             db.session.add(admin)
+#             db.session.commit()
+            
+#     port = int(os.environ.get("PORT", 10000))
+#     app.run(host='0.0.0.0', port=port)
