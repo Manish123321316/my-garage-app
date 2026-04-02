@@ -145,53 +145,68 @@ def logout(): logout_user(); return redirect(url_for('login'))
 @app.route('/generate_bill', methods=['POST'])
 @login_required
 def generate_bill():
-    car = request.form['car_number'].upper()
-    model = request.form.get('car_model', '')
-    owner = request.form['owner_name']
-    mobile = request.form['mobile']
-    total = float(request.form['grand_total_val'])
-    
-    # Client Management
-    c = ClientData.query.filter_by(car_number=car).first()
-    if not c: db.session.add(ClientData(car_number=car, owner_name=owner, mobile=mobile))
-    else: c.mobile = mobile
-    
-    # --- DISCOUNT & ITEMS LOGIC ---
-    s_names = request.form.getlist('service_names[]')
-    s_prices = request.form.getlist('service_prices[]')
-    s_discs = request.form.getlist('service_discs[]')
-    s_totals = request.form.getlist('service_totals[]')
-    
-    items = []
-    for i in range(len(s_names)):
-        if s_names[i] != "Select":
-            items.append({
-                'name': s_names[i], 
-                'price': s_prices[i], 
-                'disc': s_discs[i], 
-                'total': s_totals[i]
-            })
-    
-    fname = f"Bill_{car}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
-    path = os.path.join(app.config['BILL_FOLDER'], fname)
-    
-    # PDF generation
-    pdf = FPDF(); pdf.add_page(); pdf.set_font("Arial", 'B', 16)
-    pdf.cell(190, 10, "JAGESHWAR CAR CARE", ln=True, align='C')
-    pdf.output(path)
-    
-    # Save Bill
-    new_bill = Bill(car_number=car, car_model=model, owner_name=owner, mobile=mobile, 
-                    total_amount=total, points_earned=total/100, filename=fname, 
-                    details_json=json.dumps(items))
-    
-    # Update User Points if exists
-    u = User.query.filter_by(username=owner).first()
-    if u: u.reward_points += (total/100)
-    
-    db.session.add(new_bill); db.session.commit()
-    flash("Bill Generated Successfully!")
-    return redirect(url_for('index'))
+    try:
+        # HTML ke names ke hisaab se data le rahe hain
+        car = request.form.get('car_no', '').upper()
+        model = request.form.get('car_model', '')
+        owner = request.form.get('owner', '')
+        mobile = request.form.get('mobile', '')
+        
+        # Agar grand_total_val nahi hai toh total 0 maano (Error se bachne ke liye)
+        total_val = request.form.get('grand_total_val', '0')
+        total = float(total_val) if total_val else 0.0
+        
+        # Client Data Update
+        client_check = ClientData.query.filter_by(car_number=car).first()
+        if not client_check:
+            db.session.add(ClientData(car_number=car, owner_name=owner, mobile=mobile))
+        else:
+            client_check.mobile = mobile
+            client_check.owner_name = owner
+
+        # Discount aur Items ka logic
+        s_names = request.form.getlist('service_names[]')
+        s_prices = request.form.getlist('service_prices[]')
+        s_discs = request.form.getlist('service_discs[]')
+        s_totals = request.form.getlist('service_totals[]')
+        
+        items = []
+        for i in range(len(s_names)):
+            if s_names[i] and s_names[i] != "Select":
+                items.append({
+                    'name': s_names[i], 
+                    'price': s_prices[i], 
+                    'disc': s_discs[i], 
+                    'total': s_totals[i]
+                })
+        
+        fname = f"Bill_{car}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+        path = os.path.join(app.config['BILL_FOLDER'], fname)
+        
+        # PDF Generation (Simple)
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(190, 10, "JAGESHWAR CAR CARE", ln=True, align='C')
+        pdf.output(path)
+        
+        new_bill = Bill(
+            car_number=car, car_model=model, owner_name=owner, 
+            mobile=mobile, total_amount=total, points_earned=total/100, 
+            filename=fname, details_json=json.dumps(items)
+        )
+        
+        u = User.query.filter_by(username=owner).first()
+        if u: u.reward_points += (total/100)
+        
+        db.session.add(new_bill)
+        db.session.commit()
+        flash("Bill Generated Successfully!")
+        return redirect(url_for('index'))
+    except Exception as e:
+        print(f"Error: {e}")
+        flash("Something went wrong while generating bill.")
+        return redirect(url_for('index'))
 
 @app.route('/view_bills')
 @login_required
