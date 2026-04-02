@@ -34,7 +34,6 @@
                     <tr>
                         <td>{{u.username}}</td>
                         <td>{{u.role}}</td>
-                        <td>Points: {{ user.reward_points }}</td>
                         <td>{{ u.plan_name if u.is_premium else "None" }}</td>
                         <td>
                             <button class="btn btn-sm btn-outline-primary py-0" onclick="editUser('{{u.id}}','{{u.username}}','{{u.password}}','{{u.role}}',{{ 'true' if u.p_stats else 'false' }}, {{ 'true' if u.is_premium else 'false' }}, '{{u.plan_name or ''}}')">Edit</button>
