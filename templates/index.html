@@ -1,83 +1,200 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center">
-        <h2>Welcome, Admin!</h2>
-        <a href="/logout" class="btn btn-outline-danger">Logout</a>
-    </div>
+{% if stats and current_user.role != 'Team' %}
+<div class="mb-3 d-flex justify-content-between align-items-center">
+    <h5 class="fw-bold mb-0">Analytics Statistics</h5>
+    <button class="btn btn-sm btn-dark" onclick="toggleStats()">
+        <i class="fas fa-eye" id="eyeIcon"></i> <span id="btnText">Show Stats</span>
+    </button>
+</div>
 
-    <div class="row mt-4">
-        <div class="col-md-4 mb-2">
-            <div class="card bg-primary text-white p-3 shadow">
-                <h4>Total Clients: {{ stats.clients }}</h4>
-            </div>
-        </div>
-        <div class="col-md-4 mb-2">
-            <div class="card bg-success text-white p-3 shadow">
-                <h4>Total Bills: {{ stats.bills }}</h4>
-            </div>
-        </div>
-        <div class="col-md-4 mb-2">
-            <div class="card bg-info text-white p-3 shadow">
-                <h4>Total Income: ₹{{ stats.income }}</h4>
-            </div>
+<div class="row mb-4 g-3" id="statsRow">
+    <div class="col-md-4">
+        <div class="card p-3 bg-primary text-white shadow-sm border-0">
+            <h6>Total Income</h6>
+            <h3 class="mb-0">
+                <span class="stat-val d-none">Rs. {{stats.income}}</span>
+                <span class="stat-hide">Rs. ****</span>
+            </h3>
         </div>
     </div>
-
-    <div class="card mt-4 p-4 shadow">
-        <h3><i class="bi bi-plus-circle"></i> Create New Bill</h3>
-        <hr>
-        <form action="/generate_bill" method="POST">
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <label>Car Number</label>
-                    <input type="text" name="car_no" placeholder="RJ27..." class="form-control" required>
-                </div>
-                <div class="col-md-3">
-                    <label>Car Model</label>
-                    <input type="text" name="car_model" placeholder="Swift/Thar" class="form-control">
-                </div>
-                <div class="col-md-3">
-                    <label>Owner Name</label>
-                    <input type="text" name="owner" placeholder="Customer Name" class="form-control" required>
-                </div>
-                <div class="col-md-3">
-                    <label>Mobile</label>
-                    <input type="text" name="mobile" placeholder="10 Digit Number" class="form-control" required>
-                </div>
-            </div>
-
-            <div class="table-responsive mt-4">
-                <table class="table table-bordered">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Service</th>
-                            <th>Price</th>
-                            <th>Discount (%)</th>
-                            <th>Final Price</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <select name="service_names[]" class="form-control">
-                                    <option value="Select">-- Select Service --</option>
-                                    {% for s in services %}
-                                    <option value="{{ s.name }}">{{ s.name }} (₹{{ s.price }})</option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                            <td><input type="number" name="service_prices[]" class="form-control" value="0"></td>
-                            <td><input type="number" name="service_discs[]" class="form-control" value="0"></td>
-                            <td><input type="number" name="service_totals[]" class="form-control" value="0" readonly></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <input type="hidden" name="grand_total_val" value="0">
-            <button type="submit" class="btn btn-primary btn-lg w-100 shadow">Generate & Print PDF Bill</button>
-        </form>
+    <div class="col-md-4">
+        <div class="card p-3 bg-success text-white shadow-sm border-0">
+            <h6>Registered Clients</h6>
+            <h3 class="mb-0">
+                <span class="stat-val d-none">{{stats.clients}}</span>
+                <span class="stat-hide">****</span>
+            </h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 bg-dark text-white shadow-sm border-0">
+            <h6>Bills Issued</h6>
+            <h3 class="mb-0">
+                <span class="stat-val d-none">{{stats.bills}}</span>
+                <span class="stat-hide">****</span>
+            </h3>
+        </div>
     </div>
 </div>
+{% endif %}
+
+<div class="row">
+    {% if current_user.role != 'Team' %}
+    <div class="col-md-4">
+        {% if pay_reqs %}
+        <div class="card p-3 mb-3 border-warning shadow-sm bg-light">
+            <h6 class="fw-bold text-warning mb-3">💰 PENDING PAYMENTS</h6>
+            {% for r in pay_reqs %}
+            <div class="border-bottom pb-2 mb-2 small d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <a href="/delete/payreq/{{r.id}}" class="text-danger me-2" title="Remove Request" style="text-decoration:none; font-weight:bold;">&times;</a>
+                    <span><b>{{r.user}}</b> ({{r.plan}})</span>
+                </div>
+                <button class="btn btn-sm btn-success py-0" onclick="openApprove('{{r.id}}','{{r.user}}','{{r.plan}}', '{{r.details}}')">Approve</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="card p-3 mb-3 border-info shadow-sm">
+            <h6 class="fw-bold text-info mb-3">⭐ CLIENT FEEDBACKS</h6>
+            <div style="max-height: 300px; overflow-y: auto;">
+                {% for f in feedbacks %}
+                <div class="p-2 border rounded bg-light mb-2 small shadow-sm position-relative">
+                    <a href="/delete/feedback/{{f.id}}" class="text-danger position-absolute top-0 end-0 me-2 mt-1" style="text-decoration:none; font-weight:bold;">&times;</a>
+                    <div class="d-flex justify-content-between pe-3">
+                        <b>{{f.client_name}}</b>
+                        <span class="text-warning fw-bold">{{f.rating}}★</span>
+                    </div>
+                    <p class="mb-1 text-muted pe-2">{{f.comment}}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-3 border-primary shadow-sm">
+            <h6 class="fw-bold text-primary">🚗 BOOKINGS</h6>
+            {% for b in bookings %}
+            <div class="small border-bottom py-2 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <a href="/delete/booking/{{b.id}}" class="text-danger me-2" title="Remove Booking" style="text-decoration:none; font-weight:bold;">&times;</a>
+                    <span>{{b.client_name}} ({{b.car_number}})</span>
+                </div>
+                <button class="btn btn-sm btn-link py-0" onclick="openReply('{{b.id}}','{{b.client_name}}')">Reply</button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="{% if current_user.role == 'Team' %}col-md-12{% else %}col-md-8{% endif %}">
+        <div class="card p-4 shadow-sm border-0">
+            <h5 class="fw-bold mb-3 text-primary">CREATE NEW BILL</h5>
+            <form action="/generate_bill" method="POST">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3"><input type="text" name="car_number" class="form-control" placeholder="Car No" required></div>
+                    <div class="col-md-3"><input type="text" name="car_model" class="form-control" placeholder="Car Model" required></div>
+                    <div class="col-md-3"><input type="text" name="owner_name" class="form-control" placeholder="Owner" required></div>
+                    <div class="col-md-3"><input type="text" name="mobile" class="form-control" placeholder="Mobile" required></div>
+                </div>
+                <table class="table table-sm" id="billTable">
+                    <thead class="table-light"><tr><th width="40%">Service</th><th>Price</th><th>Disc%</th><th>Total</th></tr></thead>
+                    <tbody><tr>
+                        <td>
+                            <select class="form-select s-name" name="service_names[]" onchange="setRow(this)">
+                                <option value="Select">Select Service</option>
+                                {% for s in services %}<option value="{{s.name}}" data-price="{{s.default_price}}">{{s.name}}</option>{% endfor %}
+                            </select>
+                        </td>
+                        <td><input type="number" name="service_prices[]" class="form-control r-price" value="0"></td>
+                        <td><input type="number" name="service_discs[]" class="form-control r-disc" value="0"></td>
+                        <td><input type="number" name="service_totals[]" class="form-control r-total" readonly value="0"></td>
+                    </tr></tbody>
+                </table>
+                <div class="d-flex justify-content-between mt-3 align-items-center">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">+ Add More Service</button>
+                    <h4 class="fw-bold mb-0 text-success">Total: Rs. <span id="grand">0.00</span></h4>
+                </div>
+                <input type="hidden" name="grand_total_val" id="grand_val">
+                <button class="btn btn-primary w-100 mt-4 fw-bold shadow-lg py-2">GENERATE & PRINT PDF BILL</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="approveModal" tabindex="-1"><div class="modal-dialog"><form action="/approve_sub" method="POST" class="modal-content border-0 shadow-lg"><div class="modal-body p-4">
+    <h5 class="fw-bold text-center">Process Plan Payment</h5>
+    <div class="p-3 bg-light border rounded mb-3">
+        <h6 class="fw-bold mb-1" id="subInfo"></h6>
+        <p class="small text-muted mb-0" id="subDetails"></p>
+    </div>
+    <input type="hidden" name="req_id" id="reqId">
+    <textarea name="reply" class="form-control mb-3" placeholder="Welcome message for client..."></textarea>
+    <div class="d-flex gap-2"><button name="action" value="approve" class="btn btn-success w-100 fw-bold">APPROVE</button><button name="action" value="reject" class="btn btn-danger w-100">REJECT</button></div>
+</div></form></div></div>
+
+<div class="modal fade" id="replyModal" tabindex="-1"><div class="modal-dialog"><form action="/booking_action" method="POST" class="modal-content"><div class="modal-body">
+    <input type="hidden" name="id" id="bId">
+    <h6 class="fw-bold mb-3">Update Booking Status</h6>
+    <select name="status" class="form-select mb-2"><option value="Confirmed">Confirm</option><option value="Rejected">Reject</option></select>
+    <textarea name="note" class="form-control mb-3" placeholder="Note to client..."></textarea><button class="btn btn-primary w-100">Update Now</button>
+</div></form></div></div>
+
+<script>
+// Updated Toggle Function: Hides only values, keeps boxes
+function toggleStats() {
+    let vals = document.querySelectorAll('.stat-val');
+    let hides = document.querySelectorAll('.stat-hide');
+    let icon = document.getElementById('eyeIcon');
+    let btnText = document.getElementById('btnText');
+
+    if(icon.classList.contains('fa-eye')) {
+        // Show actual numbers
+        vals.forEach(v => v.classList.remove('d-none'));
+        hides.forEach(h => h.classList.add('d-none'));
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+        btnText.innerText = " Hide Stats";
+    } else {
+        // Hide numbers (show ****)
+        vals.forEach(v => v.classList.add('d-none'));
+        hides.forEach(h => h.classList.remove('d-none'));
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+        btnText.innerText = " Show Stats";
+    }
+}
+
+function setRow(s){ 
+    let opt = s.options[s.selectedIndex];
+    s.closest('tr').querySelector('.r-price').value = opt.getAttribute('data-price') || 0; 
+    calc(); 
+}
+function addRow(){ 
+    let tbody = document.querySelector('#billTable tbody');
+    let r = tbody.rows[0].cloneNode(true); 
+    r.querySelectorAll('input').forEach(i=>i.value=0); 
+    r.querySelector('select').selectedIndex = 0;
+    tbody.appendChild(r); 
+}
+document.addEventListener('input', calc);
+function calc(){
+    let total = 0;
+    document.querySelectorAll('#billTable tbody tr').forEach(tr => {
+        let p = parseFloat(tr.querySelector('.r-price').value) || 0;
+        let d = parseFloat(tr.querySelector('.r-disc').value) || 0;
+        let f = p - (p*d/100); 
+        tr.querySelector('.r-total').value = f.toFixed(2); 
+        total += f;
+    });
+    document.getElementById('grand').innerText = total.toFixed(2);
+    document.getElementById('grand_val').value = total.toFixed(2);
+}
+function openApprove(id, user, plan, details){ 
+    document.getElementById('reqId').value = id; 
+    document.getElementById('subInfo').innerText = user + " - " + plan; 
+    document.getElementById('subDetails').innerText = "Benefits: " + details;
+    new bootstrap.Modal(document.getElementById('approveModal')).show(); 
+}
+function openReply(id, name){ document.getElementById('bId').value = id; new bootstrap.Modal(document.getElementById('replyModal')).show(); }
+</script>
 {% endblock %}
