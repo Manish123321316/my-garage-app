@@ -7,7 +7,10 @@ import os
 import json
 from datetime import datetime, timedelta
 
+
+
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'my-super-secret-key-123' # Ye line zaroori hai Flash messages ke liye
 # Naya Neon Database Link
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neondb_owner:npg_L40ycfqeIAGF@ep-fragrant-term-a1v7voar-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -140,8 +143,19 @@ with app.app_context():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        u = User.query.filter_by(username=request.form['username'], password=request.form['password']).first()
-        if u: login_user(u); return redirect(url_for('index'))
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        # User ko database mein dhoondo
+        u = User.query.filter_by(username=username, password=password).first()
+        
+        if u:
+            login_user(u)
+            return redirect(url_for('index'))
+        else:
+            # AGAR PASSWORD GALAT HAI TOH YE MESSAGE BHEJO
+            flash("Opps! Galat Username ya Password.") 
+            
     return render_template('login.html')
 
 @app.route('/logout')
