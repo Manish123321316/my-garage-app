@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-# Config
+# --- Configuration ---
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neondb_owner:npg_L40ycfqeIAGF@ep-fragrant-term-a1v7voar-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'jageshwar_ultimate_v30_pro'
@@ -112,32 +112,31 @@ def load_user(user_id): return User.query.get(int(user_id))
 @app.route('/')
 @login_required
 def index():
-    # Common data for everyone
-    notices = Notice.query.all()
-    services = Service.query.all()
-    plans = SubPlan.query.all()
-
     if current_user.role == 'Client':
         bookings = Booking.query.filter_by(client_name=current_user.username).all()
-        pay_reqs = PaymentRequest.query.filter_by(client_id=current_user.id).all()
-        return render_template('client_dash.html', bookings=bookings, pay_reqs=pay_reqs, notices=notices, services=services, plans=plans)
+        return render_template('client_dash.html', bookings=bookings, services=Service.query.all(), plans=SubPlan.query.all(), notices=Notice.query.all())
     
-    # Admin Data
+    # Admin Stats (Dhyan se saare variables bhej rahe hain)
     inc_bill = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
     stats = {'clients': ClientData.query.count(), 'bills': Bill.query.count(), 'income': inc_bill}
     resets = User.query.filter_by(reset_req=True).all()
     pending_bookings = Booking.query.filter_by(status='Pending').all()
-    feedbacks = Feedback.query.order_by(Feedback.id.desc()).limit(5).all()
     pay_reqs = PaymentRequest.query.filter_by(status='Pending').all()
+    all_feedbacks = Feedback.query.order_by(Feedback.id.desc()).all()
 
-    return render_template('index.html', stats=stats, users_with_reset_req=resets, bookings=pending_bookings, feedbacks=feedbacks, pay_reqs=pay_reqs, notices=notices)
+    return render_template('index.html', 
+                           stats=stats, 
+                           users_with_reset_req=resets, 
+                           bookings=pending_bookings, 
+                           pay_reqs=pay_reqs, 
+                           feedbacks=all_feedbacks, 
+                           notices=Notice.query.all())
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         u = User.query.filter_by(username=request.form['username'], password=request.form['password']).first()
         if u: login_user(u); return redirect(url_for('index'))
-        flash("Invalid Credentials")
     return render_template('login.html')
 
 @app.route('/logout')
@@ -147,35 +146,50 @@ def logout(): logout_user(); return redirect(url_for('login'))
 @login_required
 def generate_bill():
     car = request.form['car_number'].upper()
-    model = request.form['car_model']
+    model = request.form.get('car_model', '')
     owner = request.form['owner_name']
     mobile = request.form['mobile']
     total = float(request.form['grand_total_val'])
-    earned_points = total / 100
-
-    # Client Data Update
-    client_check = ClientData.query.filter_by(car_number=car).first()
-    if not client_check:
-        db.session.add(ClientData(car_number=car, owner_name=owner, mobile=mobile))
-    else:
-        client_check.mobile = mobile
-
-    # Bill Info
-    services_req = request.form.getlist('service_names[]')
-    prices = request.form.getlist('service_prices[]')
-    items = [{'name': s, 'price': p} for s, p in zip(services_req, prices) if s != "Select"]
+    
+    # Client Management
+    c = ClientData.query.filter_by(car_number=car).first()
+    if not c: db.session.add(ClientData(car_number=car, owner_name=owner, mobile=mobile))
+    else: c.mobile = mobile
+    
+    # --- DISCOUNT & ITEMS LOGIC ---
+    s_names = request.form.getlist('service_names[]')
+    s_prices = request.form.getlist('service_prices[]')
+    s_discs = request.form.getlist('service_discs[]')
+    s_totals = request.form.getlist('service_totals[]')
+    
+    items = []
+    for i in range(len(s_names)):
+        if s_names[i] != "Select":
+            items.append({
+                'name': s_names[i], 
+                'price': s_prices[i], 
+                'disc': s_discs[i], 
+                'total': s_totals[i]
+            })
     
     fname = f"Bill_{car}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
     path = os.path.join(app.config['BILL_FOLDER'], fname)
-    pdf = FPDF(); pdf.add_page(); pdf.set_font("Arial", 'B', 16); pdf.cell(190, 10, "JAGESHWAR CAR CARE", ln=True, align='C'); pdf.output(path)
     
-    new_bill = Bill(car_number=car, car_model=model, owner_name=owner, mobile=mobile, total_amount=total, points_earned=earned_points, filename=fname, details_json=json.dumps(items))
-    db.session.add(new_bill)
+    # PDF generation
+    pdf = FPDF(); pdf.add_page(); pdf.set_font("Arial", 'B', 16)
+    pdf.cell(190, 10, "JAGESHWAR CAR CARE", ln=True, align='C')
+    pdf.output(path)
     
-    user = User.query.filter_by(username=owner).first()
-    if user: user.reward_points += earned_points
+    # Save Bill
+    new_bill = Bill(car_number=car, car_model=model, owner_name=owner, mobile=mobile, 
+                    total_amount=total, points_earned=total/100, filename=fname, 
+                    details_json=json.dumps(items))
     
-    db.session.commit()
+    # Update User Points if exists
+    u = User.query.filter_by(username=owner).first()
+    if u: u.reward_points += (total/100)
+    
+    db.session.add(new_bill); db.session.commit()
     flash("Bill Generated Successfully!")
     return redirect(url_for('index'))
 
@@ -183,37 +197,18 @@ def generate_bill():
 @login_required
 def view_bills():
     bills = Bill.query.order_by(Bill.id.desc()).all()
-    today_sum = db.session.query(db.func.sum(Bill.total_amount)).filter(db.func.date(Bill.date_time) == datetime.now().date()).scalar() or 0
-    return render_template('view_bills.html', bills=bills, t_sum=today_sum)
-
-@app.route('/settings', methods=['GET', 'POST'])
-@login_required
-def settings():
-    if current_user.role != 'Owner': return "Denied"
-    if request.method == 'POST':
-        act = request.form.get('action')
-        if act == 'add_service':
-            db.session.add(Service(name=request.form['name'], price=float(request.form['price'])))
-        elif act == 'add_plan':
-            f = request.files['qr_image']
-            fname = secure_filename(f.filename) if f else "default.png"
-            if f: f.save(os.path.join(app.config['UPLOAD_FOLDER'], fname))
-            db.session.add(SubPlan(name=request.form['name'], price=request.form['price'], details=request.form['details'], qr_image=fname))
-        elif act == 'add_notice':
-            db.session.add(Notice(title=request.form['title'], content=request.form['content'], visible_to=request.form['visible'], color=request.form['color']))
-        db.session.commit(); flash("Settings Updated!")
-    return render_template('settings.html', services=Service.query.all(), plans=SubPlan.query.all(), notices=Notice.query.all())
+    t_sum = db.session.query(db.func.sum(Bill.total_amount)).filter(db.func.date(Bill.date_time) == datetime.now().date()).scalar() or 0
+    return render_template('view_bills.html', bills=bills, t_sum=t_sum)
 
 @app.route('/users')
 @login_required
 def manage_users():
-    if current_user.role != 'Owner': return "Denied"
+    if current_user.role != 'Owner': return "Access Denied"
     return render_template('manage_users.html', users=User.query.all())
 
 @app.route('/clients')
 @login_required
-def manage_clients():
-    if current_user.role != 'Owner': return "Denied"
+def clients_list():
     return render_template('clients.html', clients=ClientData.query.all())
 
 @app.route('/track_history', methods=['GET', 'POST'])
@@ -225,62 +220,56 @@ def track_history():
         bills = Bill.query.filter_by(car_number=car, mobile=mob).order_by(Bill.id.desc()).all()
     return render_template('track_history.html', bills=bills)
 
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    if current_user.role != 'Owner': return "Denied"
+    if request.method == 'POST':
+        act = request.form.get('action')
+        if act == 'add_service':
+            db.session.add(Service(name=request.form['name'], price=float(request.form['price'])))
+        elif act == 'add_plan':
+            f = request.files.get('qr_image')
+            fn = secure_filename(f.filename) if f else "default.png"
+            if f: f.save(os.path.join(app.config['UPLOAD_FOLDER'], fn))
+            db.session.add(SubPlan(name=request.form['name'], price=request.form['price'], 
+                                  details=request.form['details'], qr_image=fn))
+        elif act == 'add_notice':
+            db.session.add(Notice(title=request.form['title'], content=request.form['content'], 
+                                  visible_to=request.form['visible'], color=request.form['color']))
+        db.session.commit(); flash("Settings Updated!")
+        return redirect(url_for('settings'))
+    return render_template('settings.html', services=Service.query.all(), 
+                           plans=SubPlan.query.all(), notices=Notice.query.all())
+
 @app.route('/approve_sub', methods=['POST'])
 @login_required
 def approve_sub():
-    if current_user.role != 'Owner': return "Denied"
     req = PaymentRequest.query.get(request.form['req_id'])
-    client = User.query.get(req.client_id)
+    u = User.query.get(req.client_id)
     if request.form['action'] == 'approve':
-        req.status = 'Approved'
-        client.is_premium, client.plan_name = True, req.plan_name
-        client.sub_start_date = datetime.now()
-        client.sub_end_date = datetime.now() + timedelta(days=30)
+        req.status = 'Approved'; u.is_premium = True; u.plan_name = req.plan_name
+        u.sub_start_date = datetime.now()
+        u.sub_end_date = datetime.now() + timedelta(days=30)
     else:
         req.status = 'Rejected'
-    db.session.commit(); flash("Subscription Status Updated!"); return redirect(url_for('index'))
+    db.session.commit(); flash("Subscription Updated!"); return redirect(url_for('index'))
 
 @app.route('/delete/<string:type>/<int:id>')
 @login_required
 def delete_item(type, id):
     m = {'plan':SubPlan, 'service':Service, 'notice':Notice, 'user':User, 'booking':Booking, 'payreq':PaymentRequest, 'feedback':Feedback}[type]
     item = m.query.get(id)
-    if item:
-        if type == 'user' and item.username == 'admin': return "Cannot delete admin"
+    if item and not (type == 'user' and item.username == 'admin'):
         db.session.delete(item); db.session.commit()
     return redirect(request.referrer or url_for('index'))
-
-@app.route('/request_password_reset', methods=['POST'])
-def request_password_reset():
-    u = User.query.filter_by(username=request.form.get('username')).first()
-    if u: u.reset_req = True; db.session.commit(); flash("Request Sent to Admin")
-    return redirect(url_for('login'))
-
-@app.route('/booking_action', methods=['POST'])
-@login_required
-def booking_action():
-    b = Booking.query.get(request.form['id'])
-    b.status, b.admin_note = request.form['status'], request.form['note']
-    db.session.commit(); return redirect(url_for('index'))
 
 @app.route('/book_slot', methods=['POST'])
 @login_required
 def book_slot():
-    db.session.add(Booking(client_name=current_user.username, car_number=request.form['car'], service_name=request.form['service'], slot_time=request.form['slot']))
-    db.session.commit(); flash("Slot Booked!"); return redirect(url_for('index'))
-
-@app.route('/submit_feedback', methods=['POST'])
-@login_required
-def submit_feedback():
-    db.session.add(Feedback(client_name=current_user.username, rating=request.form['rating'], comment=request.form['comment']))
-    db.session.commit(); flash("Feedback Sent!"); return redirect(url_for('index'))
-
-@app.route('/request_sub/<int:plan_id>')
-@login_required
-def request_sub(plan_id):
-    p = SubPlan.query.get(plan_id)
-    db.session.add(PaymentRequest(client_id=current_user.id, client_username=current_user.username, plan_id=p.id, plan_name=p.name))
-    db.session.commit(); flash("Subscription Requested!"); return redirect(url_for('index'))
+    db.session.add(Booking(client_name=current_user.username, car_number=request.form['car'], 
+                           service_name=request.form['service'], slot_time=request.form['slot']))
+    db.session.commit(); flash("Slot Requested!"); return redirect(url_for('index'))
 
 @app.route('/view_pdf/<filename>')
 def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], filename)
@@ -291,5 +280,4 @@ if __name__ == '__main__':
         if not User.query.filter_by(username='admin').first():
             db.session.add(User(username='admin', password='123', role='Owner', p_stats=True))
             db.session.commit()
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
