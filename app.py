@@ -112,25 +112,31 @@ def load_user(user_id): return User.query.get(int(user_id))
 @app.route('/')
 @login_required
 def index():
+    # Sabse pehle services fetch karein taaki bill form load ho sake
+    all_services = Service.query.all()
+    all_notices = Notice.query.all()
+    all_plans = SubPlan.query.all()
+
     if current_user.role == 'Client':
         bookings = Booking.query.filter_by(client_name=current_user.username).all()
-        return render_template('client_dash.html', bookings=bookings, services=Service.query.all(), plans=SubPlan.query.all(), notices=Notice.query.all())
+        return render_template('client_dash.html', bookings=bookings, services=all_services, plans=all_plans, notices=all_notices)
     
-    # Admin Stats (Dhyan se saare variables bhej rahe hain)
+    # Admin Data
     inc_bill = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
     stats = {'clients': ClientData.query.count(), 'bills': Bill.query.count(), 'income': inc_bill}
     resets = User.query.filter_by(reset_req=True).all()
     pending_bookings = Booking.query.filter_by(status='Pending').all()
     pay_reqs = PaymentRequest.query.filter_by(status='Pending').all()
-    all_feedbacks = Feedback.query.order_by(Feedback.id.desc()).all()
+    feedbacks = Feedback.query.all()
 
     return render_template('index.html', 
                            stats=stats, 
                            users_with_reset_req=resets, 
                            bookings=pending_bookings, 
                            pay_reqs=pay_reqs, 
-                           feedbacks=all_feedbacks, 
-                           notices=Notice.query.all())
+                           feedbacks=feedbacks, 
+                           notices=all_notices,
+                           services=all_services) # <--- Ye line miss thi
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
