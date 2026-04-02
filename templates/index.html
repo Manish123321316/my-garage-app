@@ -32,16 +32,46 @@
     {% endif %}
 
     <div class="card mt-4 p-4">
-        <h3>Create New Bill</h3>
-        <form action="/generate_bill" method="POST">
-            <div class="row">
-                <div class="col-md-3"><input type="text" name="car_no" placeholder="Car No" class="form-control" required></div>
-                <div class="col-md-3"><input type="text" name="car_model" placeholder="Car Model" class="form-control"></div>
-                <div class="col-md-3"><input type="text" name="owner" placeholder="Owner Name" class="form-control"></div>
-                <div class="col-md-3"><input type="text" name="mobile" placeholder="Mobile" class="form-control"></div>
-            </div>
-            <button type="submit" class="btn btn-primary mt-3 w-100">Generate & Print PDF Bill</button>
-        </form>
-    </div>
+    <h3>Create New Bill (Professional)</h3>
+    <form action="/generate_bill" method="POST">
+        <div class="row mb-3">
+            <div class="col-md-3"><input type="text" name="car_no" placeholder="Car No (e.g. RJ27)" class="form-control" required></div>
+            <div class="col-md-3"><input type="text" name="car_model" placeholder="Car Model" class="form-control"></div>
+            <div class="col-md-3"><input type="text" name="owner" placeholder="Owner Name" class="form-control"></div>
+            <div class="col-md-3"><input type="text" name="mobile" placeholder="Mobile No" class="form-control"></div>
+        </div>
+
+        <h5>Services & Discounts</h5>
+        <table class="table table-bordered" id="billTable">
+            <thead>
+                <tr>
+                    <th>Service Name</th>
+                    <th>Price</th>
+                    <th>Discount (%)</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <select name="service_names[]" class="form-control">
+                            <option value="Select">Select Service</option>
+                            {% for s in services %}
+                            <option value="{{ s.name }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" name="service_prices[]" class="form-control" value="0"></td>
+                    <td><input type="number" name="service_discs[]" class="form-control" value="0"></td>
+                    <td><input type="number" name="service_totals[]" class="form-control" value="0" readonly></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <input type="hidden" name="grand_total_val" id="grand_total_val" value="0">
+        <h4 class="text-end">Grand Total: Rs. <span id="display_total">0</span></h4>
+        <button type="submit" class="btn btn-primary mt-3 w-100">Generate & Print PDF Bill</button>
+    </form>
+</div>
 </div>
 {% endblock %}
