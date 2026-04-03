@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 import os
 import json
 from datetime import datetime, timedelta
+from sqlalchemy import func
 
 
 
@@ -25,12 +26,34 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 }
 db = SQLAlchemy(app)
 
+# # --- TEMPORARY DATABASE FIX ---
+# with app.app_context():
+#     try:
+#         from sqlalchemy import text
+#         # PostgreSQL ke liye direct query chala rahe hain
+#         db.session.execute(text('ALTER TABLE "user" ADD COLUMN last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+#         db.session.commit()
+#         print("✅ Column 'last_seen' successfully added to Database!")
+#     except Exception as e:
+#         db.session.rollback()
+#         print("⚠️ Column add nahi hua (ya shayad pehle se hai):", e)
+# --- FIX END ---
+
 for folder in [app.config['UPLOAD_FOLDER'], app.config['BILL_FOLDER']]:
     os.makedirs(folder, exist_ok=True)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+@app.before_request
+def update_last_seen():
+    if current_user.is_authenticated:
+        from datetime import datetime
+        current_user.last_seen = datetime.now()
+        db.session.commit()
+
+
 
 # --- Models ---
 class User(UserMixin, db.Model):
@@ -44,6 +67,11 @@ class User(UserMixin, db.Model):
     sub_start_date = db.Column(db.DateTime)
     sub_end_date = db.Column(db.DateTime)
     admin_reply = db.Column(db.String(200))
+    # class User(UserMixin, db.Model):
+    # ... aapke purane columns ...
+    admin_reply = db.Column(db.String(200))
+    # Ye naya column add karo:
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
 
 class SubPlan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -77,6 +105,12 @@ class Service(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     price = db.Column(db.Float, nullable=False) # Iska naam 'price' hi rakhein
+
+@app.before_request
+def update_last_seen():
+    if current_user.is_authenticated:
+        current_user.last_seen = datetime.now()
+        db.session.commit()   
 
 # 2. Add Service ka Route aisa hona chahiye
 @app.route('/add_service', methods=['POST'])
@@ -159,32 +193,85 @@ def login():
     return render_template('login.html')
 
 @app.route('/logout')
-def logout(): logout_user(); return redirect(url_for('login'))
+def logout():
+    if current_user.is_authenticated:
+        # User ka time 10 minute piche kar do taaki wo turant 'Offline' ho jaye
+        current_user.last_seen = datetime.now() - timedelta(minutes=10)
+        db.session.commit()
+    logout_user()
+    return redirect(url_for('login'))
 
 @app.route('/')
 @login_required
 def index():
+    # --- 1. ROLE-WISE LIVE USER LOGIC ---
+    from datetime import datetime, timedelta
+    # 30 seconds ka gap rakha hai taaki logout hote hi count gir jaye
+    threshold = datetime.now() - timedelta(seconds=10)
+    
+    # Sirf Clients kitne online hain
+    active_clients = User.query.filter(User.last_seen >= threshold, User.role == 'Client').count()
+    # Sirf Team (Owner) kitne online hain
+    active_team = User.query.filter(User.last_seen >= threshold, User.role == 'Owner').count()
+    # Total count (Backup ke liye)
+    active_count = active_clients + active_team
+
+    # --- 2. CLIENT DASHBOARD LOGIC ---
     if current_user.role == 'Client':
         if current_user.is_premium and datetime.now() > current_user.sub_end_date:
             current_user.is_premium = False
             db.session.commit()
+            
         bookings = Booking.query.filter_by(client_name=current_user.username).order_by(Booking.id.desc()).all()
         pay_reqs = PaymentRequest.query.filter_by(client_id=current_user.id).order_by(PaymentRequest.id.desc()).all()
         notices = Notice.query.filter(Notice.visible_to.in_(['All', 'Client'])).all()
-        return render_template('client_dash.html', bookings=bookings, pay_reqs=pay_reqs, notices=notices, services=Service.query.all(), plans=SubPlan.query.all())
+        
+        return render_template('client_dash.html', 
+                               bookings=bookings, 
+                               pay_reqs=pay_reqs, 
+                               notices=notices, 
+                               services=Service.query.all(), 
+                               plans=SubPlan.query.all(), 
+                               active_count=active_count)
+
+    # --- 3. OWNER/ADMIN LOGIC (Stats calculation) ---
+    # from app import ClientData, Bill, PaymentRequest, Booking, Feedback, SubPlan, Service # Ensure imports
     
-    stats, pay_reqs = None, []
+    t_rev = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
+    t_cli = ClientData.query.count()
+    t_bil = Bill.query.count()
+    
+    stats = {'clients': t_cli, 'bills': t_bil, 'income': t_rev}
+    
+    pay_reqs_data = []
     if current_user.role == 'Owner' or current_user.p_stats:
-        inc_bill = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
-        stats = {'clients': ClientData.query.count(), 'bills': Bill.query.count(), 'income': inc_bill}
         raw_reqs = PaymentRequest.query.filter_by(status='Pending').all()
         for r in raw_reqs:
             p = SubPlan.query.get(r.plan_id)
-            pay_reqs.append({'id': r.id, 'user': r.client_username, 'plan': r.plan_name, 'details': p.details if p else ""})
+            pay_reqs_data.append({
+                'id': r.id, 
+                'user': r.client_username, 
+                'plan': r.plan_name, 
+                'details': p.details if p else ""
+            })
 
     pending_bookings = Booking.query.filter_by(status='Pending').all()
     feedbacks = Feedback.query.order_by(Feedback.id.desc()).all()
-    return render_template('index.html', stats=stats, bookings=pending_bookings, pay_reqs=pay_reqs, services=Service.query.all(), feedbacks=feedbacks)
+    
+    # --- 4. FINAL RENDER (Sab variables bhej diye) ---
+    return render_template('index.html', 
+                           active_clients=active_clients, 
+                           active_team=active_team,
+                           active_count=active_count,
+                           stats=stats, 
+                           bookings=pending_bookings, 
+                           pay_reqs=pay_reqs_data, 
+                           services=Service.query.all(), 
+                           feedbacks=feedbacks,
+                           total_revenue=t_rev, 
+                           total_clients=t_cli, 
+                           total_bills=t_bil)
+    # --- YAHAN TAK ---
 
 @app.route('/approve_sub', methods=['POST'])
 @login_required
@@ -354,6 +441,19 @@ def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], fi
 
 @app.route('/clients')
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
+
+@app.route('/admin_dashboard')
+def admin_dashboard():
+    # Database se asli numbers nikalna
+    total_revenue = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
+    total_clients = ClientData.query.count()
+    total_bills = Bill.query.count()
+
+    # Ye values HTML ko bhejna zaroori hai
+    return render_template('admin_dashboard.html', 
+                           total_revenue=total_revenue, 
+                           total_clients=total_clients, 
+                           total_bills=total_bills)
 
 if __name__ == '__main__':
     with app.app_context():
