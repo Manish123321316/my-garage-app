@@ -1,41 +1,111 @@
 {% extends "layout.html" %}
+
 {% block content %}
-{% if stats and current_user.role != 'Team' %}
-<div class="mb-3 d-flex justify-content-between align-items-center">
-    <h5 class="fw-bold mb-0">Analytics Statistics</h5>
-    <button class="btn btn-sm btn-dark" onclick="toggleStats()">
+<style>
+
+    /* Mobile ke liye specific fixes */
+@media (max-width: 768px) {
+    .secret-stat {
+        font-size: 1.1rem !important; /* Numbers ko thoda chota kiya */
+    }
+    .card {
+        padding: 10px !important; /* Zyada padding hatayi */
+        margin-bottom: 10px;
+    }
+    h5 {
+        font-size: 0.9rem; /* Heading size chota */
+    }
+    .chart-container-small {
+        height: 120px !important; /* Chart ka size chota kiya mobile ke liye */
+        width: 120px !important;
+    }
+    /* Tables ko scrollable banaya taaki screen se bahar na jayein */
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+}
+
+    /* Sabse zyada priority wala rule */
+    [data-theme='dark'] .white-text-force {
+        color: #ffffff !important;
+        opacity: 1 !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,1) !important;
+    }
+    
+    [data-theme='dark'] .card {
+        background: rgba(0, 0, 0, 0.6) !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+    }
+
+    .chart-container-small {
+        height: 160px !important; width: 160px !important;
+        margin: 0 auto; position: relative;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="dynamic-text mb-0 fw-bold">DASHBOARD OVERVIEW</h5>
+    <button id="statsBtn" onclick="toggleStats()" class="btn btn-sm btn-primary shadow-sm">
         <i class="fas fa-eye" id="eyeIcon"></i> <span id="btnText">Show Stats</span>
     </button>
 </div>
 
-<div class="row mb-4 g-3" id="statsRow">
+{% if stats and current_user.role != 'Team' %}
+<div class="row g-3 mb-4">
     <div class="col-md-4">
-        <div class="card p-3 bg-primary text-white shadow-sm border-0">
-            <h6>Total Income</h6>
-            <h3 class="mb-0">
-                <span class="stat-val d-none">Rs. {{stats.income}}</span>
-                <span class="stat-hide">Rs. ****</span>
-            </h3>
+        <div class="card h-100 shadow-sm border-0 text-center p-3" style="background: rgb(84, 148, 98); border-left: 5px solid #28a745;">
+            <p class="mb-1 small" style="color: #ffffff !important; font-weight: bold; text-shadow: 1px 1px 2px #000;">Total Income</p>
+            <h4 class="secret-stat text-success mb-0 fw-bold" style="color: #ffffff !important; text-shadow: 1px 1px 2px #000;" data-real-value="Rs. {{ total_revenue }}">****</h4>
         </div>
     </div>
+
     <div class="col-md-4">
-        <div class="card p-3 bg-success text-white shadow-sm border-0">
-            <h6>Registered Clients</h6>
-            <h3 class="mb-0">
-                <span class="stat-val d-none">{{stats.clients}}</span>
-                <span class="stat-hide">****</span>
-            </h3>
+        <div class="card h-100 shadow-sm border-0 text-center p-3" style="background: rgb(83, 140, 150); border-left: 5px solid #17a2b8;">
+            <p class="mb-1 small" style="color: #ffffff !important; font-weight: bold; text-shadow: 1px 1px 2px #000;">Registered Clients</p>
+            <h4 class="secret-stat text-info mb-0 fw-bold" style="color: #ffffff !important; text-shadow: 1px 1px 2px #000;" data-real-value="{{ total_clients }}">****</h4>
         </div>
     </div>
+
     <div class="col-md-4">
-        <div class="card p-3 bg-dark text-white shadow-sm border-0">
-            <h6>Bills Issued</h6>
-            <h3 class="mb-0">
-                <span class="stat-val d-none">{{stats.bills}}</span>
-                <span class="stat-hide">****</span>
-            </h3>
+        <div class="card h-100 shadow-sm border-0 text-center p-3" style="background: rgb(138, 124, 81); border-left: 5px solid #ffc107;">
+            <p class="mb-1 small" style="color: #ffffff !important; font-weight: bold; text-shadow: 1px 1px 2px #000;">Bills Issued</p>
+            <h4 class="secret-stat text-warning mb-0 fw-bold" style="color: #ffffff !important; text-shadow: 1px 1px 2px #000;" data-real-value="{{ total_bills }}">****</h4>
         </div>
     </div>
+</div>
+
+<div class="row align-items-center mb-4 g-3">
+    <div class="col-md-6 text-center">
+        <div class="chart-container-small">
+            <canvas id="myMainChart"></canvas>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 100%;">
+                <small class="dynamic-text" style="font-size: 8px; font-weight: bold; display: block;">REVENUE</small>
+                <h5 class="mb-0 text-success fw-bold" style="font-size: 1rem;">₹ {{ total_revenue }}</h5>
+            </div>
+        </div>
+    </div>
+    <div class="p-3 custom-card">
+    <h6 class="stat-label mb-3 fw-bold"><i class="fas fa-signal text-success me-2"></i>Live System Status</h6>
+    
+    <div class="d-flex justify-content-between mb-2">
+        <span class="small stat-label">Clients Online</span>
+        <span class="badge bg-info text-dark shadow-sm">
+            <i class="fas fa-user-circle me-1"></i> {{ active_clients }} Active
+        </span>
+    </div>
+    
+    <div class="d-flex justify-content-between mb-2">
+        <span class="small stat-label">Team Online</span>
+        <span class="badge bg-primary shadow-sm">
+            <i class="fas fa-user-shield me-1"></i> {{ active_team }} Active
+        </span>
+    </div>
+
+    <div class="d-flex justify-content-between border-top pt-2 mt-2">
+        <span class="small stat-label">Server Health</span>
+        <span class="text-success small fw-bold">Excellent</span>
+    </div>
+</div>
 </div>
 {% endif %}
 
@@ -43,13 +113,13 @@
     {% if current_user.role != 'Team' %}
     <div class="col-md-4">
         {% if pay_reqs %}
-        <div class="card p-3 mb-3 border-warning shadow-sm bg-light">
+        <div class="card p-3 mb-3 border-warning shadow-sm">
             <h6 class="fw-bold text-warning mb-3">💰 PENDING PAYMENTS</h6>
             {% for r in pay_reqs %}
             <div class="border-bottom pb-2 mb-2 small d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center">
-                    <a href="/delete/payreq/{{r.id}}" class="text-danger me-2" title="Remove Request" style="text-decoration:none; font-weight:bold;">&times;</a>
-                    <span><b>{{r.user}}</b> ({{r.plan}})</span>
+                    <a href="/delete/payreq/{{r.id}}" class="text-danger me-2 fw-bold" style="text-decoration:none;">&times;</a>
+                    <span class="dynamic-text"><b>{{r.user}}</b> ({{r.plan}})</span>
                 </div>
                 <button class="btn btn-sm btn-success py-0" onclick="openApprove('{{r.id}}','{{r.user}}','{{r.plan}}', '{{r.details}}')">Approve</button>
             </div>
@@ -58,28 +128,25 @@
         {% endif %}
 
         <div class="card p-3 mb-3 border-info shadow-sm">
-            <h6 class="fw-bold text-info mb-3">⭐ CLIENT FEEDBACKS</h6>
-            <div style="max-height: 300px; overflow-y: auto;">
+            <h6 class="fw-bold text-info mb-3">⭐ FEEDBACKS</h6>
+            <div style="max-height: 200px; overflow-y: auto;">
                 {% for f in feedbacks %}
-                <div class="p-2 border rounded bg-light mb-2 small shadow-sm position-relative">
-                    <a href="/delete/feedback/{{f.id}}" class="text-danger position-absolute top-0 end-0 me-2 mt-1" style="text-decoration:none; font-weight:bold;">&times;</a>
-                    <div class="d-flex justify-content-between pe-3">
-                        <b>{{f.client_name}}</b>
-                        <span class="text-warning fw-bold">{{f.rating}}★</span>
-                    </div>
-                    <p class="mb-1 text-muted pe-2">{{f.comment}}</p>
+                <div class="p-2 border rounded mb-2 small shadow-sm position-relative">
+                    <a href="/delete/feedback/{{f.id}}" class="text-danger position-absolute top-0 end-0 me-2 mt-1 fw-bold" style="text-decoration:none;">&times;</a>
+                    <b class="dynamic-text">{{f.client_name}}</b> <span class="text-warning">{{f.rating}}★</span>
+                    <p class="mb-0 text-muted">{{f.comment}}</p>
                 </div>
                 {% endfor %}
             </div>
         </div>
 
         <div class="card p-3 border-primary shadow-sm">
-            <h6 class="fw-bold text-primary">🚗 BOOKINGS</h6>
+            <h6 class="fw-bold text-primary mb-3">🚗 BOOKINGS</h6>
             {% for b in bookings %}
             <div class="small border-bottom py-2 d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center">
-                    <a href="/delete/booking/{{b.id}}" class="text-danger me-2" title="Remove Booking" style="text-decoration:none; font-weight:bold;">&times;</a>
-                    <span>{{b.client_name}} ({{b.car_number}})</span>
+                    <a href="/delete/booking/{{b.id}}" class="text-danger me-2 fw-bold" style="text-decoration:none;">&times;</a>
+                    <span class="dynamic-text">{{b.client_name}} ({{b.car_number}})</span>
                 </div>
                 <button class="btn btn-sm btn-link py-0" onclick="openReply('{{b.id}}','{{b.client_name}}')">Reply</button>
             </div>
@@ -94,107 +161,180 @@
             <form action="/generate_bill" method="POST">
                 <div class="row g-2 mb-3">
                     <div class="col-md-3"><input type="text" name="car_number" class="form-control" placeholder="Car No" required></div>
-                    <div class="col-md-3"><input type="text" name="car_model" class="form-control" placeholder="Car Model" required></div>
                     <div class="col-md-3"><input type="text" name="owner_name" class="form-control" placeholder="Owner" required></div>
                     <div class="col-md-3"><input type="text" name="mobile" class="form-control" placeholder="Mobile" required></div>
+                    <div class="col-md-3"><input type="text" name="car_model" class="form-control" placeholder="Model" required></div>
                 </div>
                 <table class="table table-sm" id="billTable">
                     <thead class="table-light"><tr><th width="40%">Service</th><th>Price</th><th>Disc%</th><th>Total</th></tr></thead>
-                    <tbody><tr>
-                        <td>
-                            <select class="form-select s-name" name="service_names[]" onchange="setRow(this)">
-                                <option value="Select">Select Service</option>
-                                {% for s in services %}<option value="{{s.name}}" data-price="{{s.default_price}}">{{s.name}}</option>{% endfor %}
-                            </select>
-                        </td>
-                        <td><input type="number" name="service_prices[]" class="form-control r-price" value="0"></td>
-                        <td><input type="number" name="service_discs[]" class="form-control r-disc" value="0"></td>
-                        <td><input type="number" name="service_totals[]" class="form-control r-total" readonly value="0"></td>
-                    </tr></tbody>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <select class="form-select s-name" name="service_names[]" onchange="setRow(this)">
+                                    <option value="Select">Select Service</option>
+                                    {% for s in services %}<option value="{{s.name}}" data-price="{{s.default_price}}">{{s.name}}</option>{% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="number" name="service_prices[]" class="form-control r-price" value="0"></td>
+                            <td><input type="number" name="service_discs[]" class="form-control r-disc" value="0"></td>
+                            <td><input type="number" name="service_totals[]" class="form-control r-total" readonly value="0"></td>
+                        </tr>
+                    </tbody>
                 </table>
                 <div class="d-flex justify-content-between mt-3 align-items-center">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">+ Add More Service</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">+ Add Service</button>
                     <h4 class="fw-bold mb-0 text-success">Total: Rs. <span id="grand">0.00</span></h4>
                 </div>
                 <input type="hidden" name="grand_total_val" id="grand_val">
-                <button class="btn btn-primary w-100 mt-4 fw-bold shadow-lg py-2">GENERATE & PRINT PDF BILL</button>
+                <button class="btn btn-primary w-100 mt-4 fw-bold">GENERATE BILL</button>
             </form>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="approveModal" tabindex="-1"><div class="modal-dialog"><form action="/approve_sub" method="POST" class="modal-content border-0 shadow-lg"><div class="modal-body p-4">
-    <h5 class="fw-bold text-center">Process Plan Payment</h5>
-    <div class="p-3 bg-light border rounded mb-3">
-        <h6 class="fw-bold mb-1" id="subInfo"></h6>
-        <p class="small text-muted mb-0" id="subDetails"></p>
-    </div>
-    <input type="hidden" name="req_id" id="reqId">
-    <textarea name="reply" class="form-control mb-3" placeholder="Welcome message for client..."></textarea>
-    <div class="d-flex gap-2"><button name="action" value="approve" class="btn btn-success w-100 fw-bold">APPROVE</button><button name="action" value="reject" class="btn btn-danger w-100">REJECT</button></div>
-</div></form></div></div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    function toggleStats() {
+        const stats = document.querySelectorAll('.secret-stat');
+        const btn = document.getElementById('statsBtn');
+        const icon = document.getElementById('eyeIcon');
+        const text = document.getElementById('btnText');
+        stats.forEach(s => {
+            if (s.innerText.includes('****')) {
+                s.innerText = s.getAttribute('data-real-value');
+                text.innerText = " Hide Stats"; icon.className = "fas fa-eye-slash";
+            } else {
+                s.innerText = '****';
+                text.innerText = " Show Stats"; icon.className = "fas fa-eye";
+            }
+        });
+    }
 
-<div class="modal fade" id="replyModal" tabindex="-1"><div class="modal-dialog"><form action="/booking_action" method="POST" class="modal-content"><div class="modal-body">
-    <input type="hidden" name="id" id="bId">
-    <h6 class="fw-bold mb-3">Update Booking Status</h6>
-    <select name="status" class="form-select mb-2"><option value="Confirmed">Confirm</option><option value="Rejected">Reject</option></select>
-    <textarea name="note" class="form-control mb-3" placeholder="Note to client..."></textarea><button class="btn btn-primary w-100">Update Now</button>
-</div></form></div></div>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('myMainChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Revenue', 'Clients', 'Bills'],
+                datasets: [{
+                    data: [{{ total_revenue|default(0) }}, {{ total_clients|default(0) }}, {{ total_bills|default(0) }}],
+                    backgroundColor: ['#28a745', '#17a2b8', '#ffc107'],
+                    borderWidth: 0, cutout: '75%'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    });
+
+    function setRow(s){ let opt = s.options[s.selectedIndex]; s.closest('tr').querySelector('.r-price').value = opt.getAttribute('data-price') || 0; calc(); }
+    function addRow(){ let tbody = document.querySelector('#billTable tbody'); let r = tbody.rows[0].cloneNode(true); r.querySelectorAll('input').forEach(i=>i.value=0); tbody.appendChild(r); }
+    document.addEventListener('input', calc);
+    function calc(){
+        let total = 0;
+        document.querySelectorAll('#billTable tbody tr').forEach(tr => {
+            let p = parseFloat(tr.querySelector('.r-price').value) || 0;
+            let d = parseFloat(tr.querySelector('.r-disc').value) || 0;
+            let f = p - (p*d/100); 
+            tr.querySelector('.r-total').value = f.toFixed(2); 
+            total += f;
+        });
+        document.getElementById('grand').innerText = total.toFixed(2);
+        document.getElementById('grand_val').value = total.toFixed(2);
+    }
+</script>
+
+<div class="modal fade" id="replyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Reply to Booking</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/booking_action" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="replyId">
+                    
+                    <input type="hidden" name="status" value="Replied">
+
+                    <label class="small fw-bold mb-1">Your Message:</label>
+                    <textarea name="note" class="form-control" rows="3" placeholder="Write reply..." required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100">Send Message</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Approve Request: <span id="approveUserName"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/approve_sub" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="req_id" id="approveReqId">
+                    <input type="hidden" name="action" value="approve">
+                    <p class="small text-muted mb-2">Plan: <b id="approvePlanName"></b></p>
+                    <label class="small fw-bold mb-1">Confirmation Message (Reply):</label>
+                    <textarea name="reply" class="form-control" rows="3" placeholder="Message likhein..." required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success w-100 fw-bold">VERIFY & APPROVE</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="replyModal" tabindex="-1">
+    <div class="modal-dialog border-0">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Reply to <span id="replyToName"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/reply_booking" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="booking_id" id="replyId">
+                    <textarea name="message" class="form-control" rows="4" placeholder="Write your reply here..." required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100">Send Reply</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script>
-// Updated Toggle Function: Hides only values, keeps boxes
-function toggleStats() {
-    let vals = document.querySelectorAll('.stat-val');
-    let hides = document.querySelectorAll('.stat-hide');
-    let icon = document.getElementById('eyeIcon');
-    let btnText = document.getElementById('btnText');
-
-    if(icon.classList.contains('fa-eye')) {
-        // Show actual numbers
-        vals.forEach(v => v.classList.remove('d-none'));
-        hides.forEach(h => h.classList.add('d-none'));
-        icon.classList.replace('fa-eye', 'fa-eye-slash');
-        btnText.innerText = " Hide Stats";
-    } else {
-        // Hide numbers (show ****)
-        vals.forEach(v => v.classList.add('d-none'));
-        hides.forEach(h => h.classList.remove('d-none'));
-        icon.classList.replace('fa-eye-slash', 'fa-eye');
-        btnText.innerText = " Show Stats";
+    // Approve function: Backend names se match kiya hua
+    function openApprove(id, user, plan, details) {
+        document.getElementById('approveReqId').value = id;
+        document.getElementById('approveUserName').innerText = user;
+        document.getElementById('approvePlanName').innerText = plan;
+        var myModal = new bootstrap.Modal(document.getElementById('approveModal'));
+        myModal.show();
     }
-}
 
-function setRow(s){ 
-    let opt = s.options[s.selectedIndex];
-    s.closest('tr').querySelector('.r-price').value = opt.getAttribute('data-price') || 0; 
-    calc(); 
-}
-function addRow(){ 
-    let tbody = document.querySelector('#billTable tbody');
-    let r = tbody.rows[0].cloneNode(true); 
-    r.querySelectorAll('input').forEach(i=>i.value=0); 
-    r.querySelector('select').selectedIndex = 0;
-    tbody.appendChild(r); 
-}
-document.addEventListener('input', calc);
-function calc(){
-    let total = 0;
-    document.querySelectorAll('#billTable tbody tr').forEach(tr => {
-        let p = parseFloat(tr.querySelector('.r-price').value) || 0;
-        let d = parseFloat(tr.querySelector('.r-disc').value) || 0;
-        let f = p - (p*d/100); 
-        tr.querySelector('.r-total').value = f.toFixed(2); 
-        total += f;
-    });
-    document.getElementById('grand').innerText = total.toFixed(2);
-    document.getElementById('grand_val').value = total.toFixed(2);
-}
-function openApprove(id, user, plan, details){ 
-    document.getElementById('reqId').value = id; 
-    document.getElementById('subInfo').innerText = user + " - " + plan; 
-    document.getElementById('subDetails').innerText = "Benefits: " + details;
-    new bootstrap.Modal(document.getElementById('approveModal')).show(); 
-}
-function openReply(id, name){ document.getElementById('bId').value = id; new bootstrap.Modal(document.getElementById('replyModal')).show(); }
+    // Reply function: Booking ke liye
+    function openReply(id, name) {
+        document.getElementById('replyId').value = id;
+        // Baki code...
+        var myModal = new bootstrap.Modal(document.getElementById('replyModal'));
+        myModal.show();
+    }
 </script>
+
+<script>
+    // Har 10 second mein page ko auto-refresh karega 
+    // taaki Live User count update hota rahe
+    setTimeout(function(){
+       location.reload();
+    }, 20000); // 10000ms = 10 seconds (Aap ise 5000 bhi kar sakte ho)
+</script>
+
 {% endblock %}
