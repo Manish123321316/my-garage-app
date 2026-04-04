@@ -3,6 +3,32 @@
 <div class="container d-flex justify-content-center align-items-center" style="min-height: 80vh;">
     <div class="card p-4 shadow-lg text-white" style="width: 400px; background: rgba(0,0,0,0.7); border-radius: 15px; border: 1px solid #00d4ff;">
         <h3 class="text-center mb-4" style="font-family: 'Orbitron', sans-serif;">Client Sign Up</h3>
+
+        <div class="login-container"> <h2>SIGN IN</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          {% if category == 'success' %}
+            <div style="background-color: #198754; color: white; padding: 10px; border-radius: 5px; text-align: center; margin-bottom: 15px; font-size: 14px;">
+               <i class="fas fa-check-circle"></i> {{ message }}
+            </div>
+          {% else %}
+            <div style="background-color: #dc3545; color: white; padding: 10px; border-radius: 5px; text-align: center; margin-bottom: 15px; font-size: 14px;">
+               <i class="fas fa-lock"></i> {{ message }}
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <!-- <form method="POST" action="/login">
+        <input type="text" name="username" placeholder="Username">
+        <input type="password" name="password" placeholder="Password">
+        
+        <button type="submit" ... >ACCESS SYSTEM</button>
+    </form> -->
+</div>
+
         <form method="POST">
             <div class="mb-3">
                 <label class="form-label">Apna Naam</label>
@@ -23,7 +49,7 @@
             <button type="submit" class="btn btn-info w-100 mt-2">Register Now</button>
         </form>
         <div class="text-center mt-3 small">
-            Purane customer ho? <a href="{{ url_for('login') }}" class="text-info">Login Karen</a>
+            Already have an account? <a href="{{ url_for('login') }}" class="text-info">Login here</a>
         </div>
     </div>
 </div>
