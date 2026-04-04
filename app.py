@@ -7,6 +7,8 @@ import os
 import json
 from datetime import datetime, timedelta
 from sqlalchemy import func
+import urllib.parse
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 
@@ -68,18 +70,16 @@ def update_last_seen():
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True)
-    password = db.Column(db.String(50))
+    password = db.Column(db.String(200)) # Hash ke liye length badha di hai
     role = db.Column(db.String(20)) 
+    name = db.Column(db.String(100))    # <-- Ye Naya Hai
+    mobile = db.Column(db.String(15))  # <-- Ye Naya Hai
     p_stats = db.Column(db.Boolean, default=False)
     is_premium = db.Column(db.Boolean, default=False)
     plan_name = db.Column(db.String(100))
     sub_start_date = db.Column(db.DateTime)
     sub_end_date = db.Column(db.DateTime)
     admin_reply = db.Column(db.String(200))
-    # class User(UserMixin, db.Model):
-    # ... aapke purane columns ...
-    admin_reply = db.Column(db.String(200))
-    # Ye naya column add karo:
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
 
 class SubPlan(db.Model):
@@ -145,6 +145,7 @@ class Bill(db.Model):
     car_number = db.Column(db.String(20))
     car_model = db.Column(db.String(50))
     owner_name = db.Column(db.String(100))
+    mobile = db.Column(db.String(20)) # <-- Ye line add kar do
     total_amount = db.Column(db.Float)
     details_json = db.Column(db.Text)
     filename = db.Column(db.String(200))
@@ -188,18 +189,66 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
 
-        # User ko database mein dhoondo
-        u = User.query.filter_by(username=username, password=password).first()
-        
-        if u:
-            login_user(u)
-            return redirect(url_for('index'))
-        else:
-            # AGAR PASSWORD GALAT HAI TOH YE MESSAGE BHEJO
-            flash("Opps! Galat Username ya Password.") 
+        # Normal password check (Kyunki aapne hash hata diya hai)
+        if user and user.password == password:
+            login_user(user)
             
+            # Check karo: Screenshot mein admin ka role 'Owner' dikh raha hai
+            if user.role == 'Owner' or user.role == 'admin':
+                return redirect(url_for('admin_dashboard'))
+            else:
+                # Client ko uska apna dashboard ya index page dikhao
+                return redirect(url_for('index')) 
+        
+        flash('Username ya Password galat hai!', 'danger')
     return render_template('login.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        name = request.form.get('name')
+        mobile = request.form.get('mobile')
+
+        # Pehle check karo ki username khali toh nahi
+        if not username or not password:
+            flash("Username aur Password zaroori hain!", "danger")
+            return redirect(url_for('signup'))
+
+        # Naya user banana (Force 'client' role)
+        new_user = User(
+            username=username,
+            password=password, 
+            role='Client',  # <-- Check karo spelling sahi hai na?
+            name=name,
+            mobile=mobile
+        )
+        
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            print(f"Naya user bana: {username}, Role: {new_user.role}") # Terminal mein check karne ke liye
+            flash('Account ban gaya! Login karein.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error: {e}")
+            flash("Username pehle se maujood hai!", "danger")
+            
+    return render_template('signup.html')
+
+@app.route('/client_dashboard')
+@login_required
+def client_dashboard():
+    # Agar galti se Admin yahan aaye toh use admin dashboard pe bhej do
+    if current_user.role == 'Owner' or current_user.role == 'admin':
+        return redirect(url_for('admin_dashboard'))
+        
+    # Client ko sirf uska data dikhao
+    return render_template('client_dash.html') # Ye file aapke templates mein honi chahiye
 
 @app.route('/logout')
 def logout():
@@ -299,38 +348,111 @@ def approve_sub():
         client.admin_reply = "Rejected: " + request.form['reply']
     db.session.commit(); flash("Subscription Processed!"); return redirect(url_for('index'))
 
+import urllib.parse  # Ye line top par imports mein check kar lena
+
 @app.route('/generate_bill', methods=['POST'])
 @login_required
 def generate_bill():
+    # 1. Form se data nikaalna
     car = request.form['car_number'].upper()
     model = request.form['car_model']
     owner = request.form['owner_name']
+    mobile = request.form['mobile']
     total = float(request.form['grand_total_val'])
+    action_type = request.form.get('action')
+
+    # 2. Client Data Save/Update
     if not ClientData.query.filter_by(car_number=car).first():
-        db.session.add(ClientData(car_number=car, owner_name=owner, mobile=request.form['mobile']))
+        db.session.add(ClientData(car_number=car, owner_name=owner, mobile=mobile))
+    
+    # 3. Services ki list banana
     services = request.form.getlist('service_names[]')
     prices = request.form.getlist('service_prices[]')
     discs = request.form.getlist('service_discs[]')
     totals = request.form.getlist('service_totals[]')
+    
     items = []
     for i in range(len(services)):
         if services[i] != "Select":
             items.append({'name': services[i], 'price': prices[i], 'disc': discs[i], 'total': totals[i]})
+    
+    # 4. PDF File banana
     fname = f"Bill_{car}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
     path = os.path.join(app.config['BILL_FOLDER'], fname)
-    pdf = FPDF(); pdf.add_page(); pdf.set_font("Arial", 'B', 16)
+    
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
     pdf.cell(190, 10, "JAGESHWAR CAR CARE", ln=True, align='C')
-    pdf.set_font("Arial", '', 10); pdf.cell(190, 5, "Professional Car Service & Maintenance", ln=True, align='C')
-    pdf.ln(10); pdf.set_font("Arial", 'B', 11); pdf.cell(100, 8, f"Customer: {owner}"); pdf.cell(90, 8, f"Date: {datetime.now().strftime('%d-%m-%Y %H:%M')}", ln=True, align='R')
-    pdf.cell(100, 8, f"Car No: {car}"); pdf.cell(90, 8, f"Model: {model}", ln=True, align='R')
-    pdf.ln(5); pdf.set_fill_color(240, 240, 240); pdf.set_font("Arial", 'B', 10)
-    pdf.cell(80, 10, " Service Description", 1, 0, 'L', True); pdf.cell(35, 10, " Price", 1, 0, 'C', True); pdf.cell(35, 10, " Discount %", 1, 0, 'C', True); pdf.cell(40, 10, " Total", 1, 1, 'C', True)
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(190, 5, "Professional Car Service & Maintenance", ln=True, align='C')
+    pdf.ln(10)
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(100, 8, f"Customer: {owner}")
+    pdf.cell(90, 8, f"Date: {datetime.now().strftime('%d-%m-%Y %H:%M')}", ln=True, align='R')
+    pdf.cell(100, 8, f"Car No: {car}")
+    pdf.cell(90, 8, f"Model: {model}", ln=True, align='R')
+    pdf.ln(5)
+    
+    # Table Header
+    pdf.set_fill_color(240, 240, 240)
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(80, 10, " Service Description", 1, 0, 'L', True)
+    pdf.cell(35, 10, " Price", 1, 0, 'C', True)
+    pdf.cell(35, 10, " Discount %", 1, 0, 'C', True)
+    pdf.cell(40, 10, " Total", 1, 1, 'C', True)
+    
     pdf.set_font("Arial", '', 10)
     for item in items:
-        pdf.cell(80, 10, f" {item['name']}", 1); pdf.cell(35, 10, f" {item['price']}", 1, 0, 'C'); pdf.cell(35, 10, f" {item['disc']}%", 1, 0, 'C'); pdf.cell(40, 10, f" Rs. {item['total']}", 1, 1, 'C')
-    pdf.set_font("Arial", 'B', 12); pdf.cell(150, 12, " GRAND TOTAL", 1, 0, 'R', True); pdf.cell(40, 12, f" Rs. {total}", 1, 1, 'C', True); pdf.output(path)
-    db.session.add(Bill(car_number=car, car_model=model, owner_name=owner, total_amount=total, filename=fname, details_json=json.dumps(items)))
-    db.session.commit(); flash("Bill Generated!"); return redirect(url_for('index'))
+        pdf.cell(80, 10, f" {item['name']}", 1)
+        pdf.cell(35, 10, f" {item['price']}", 1, 0, 'C')
+        pdf.cell(35, 10, f" {item['disc']}%", 1, 0, 'C')
+        pdf.cell(40, 10, f" Rs. {item['total']}", 1, 1, 'C')
+        
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(150, 12, " GRAND TOTAL", 1, 0, 'R', True)
+    pdf.cell(40, 12, f" Rs. {total}", 1, 1, 'C', True)
+    pdf.output(path)
+    
+    # 5. Database Save (IMPORTANT: mobile=mobile add kiya hai)
+    new_bill = Bill(
+        car_number=car, 
+        car_model=model, 
+        owner_name=owner, 
+        mobile=mobile,  # <--- Yeh line database mein number save karegi
+        total_amount=total, 
+        filename=fname, 
+        details_json=json.dumps(items)
+    )
+    db.session.add(new_bill)
+    db.session.commit()
+    
+    # 6. WHATSAPP REDIRECT (Agar 'Generate & Send' dabaya)
+    if action_type == 'bill_whatsapp':
+        import urllib.parse
+        # Number cleaning
+        clean_mobile = "".join(filter(str.isdigit, mobile))
+        if len(clean_mobile) == 10: 
+            clean_mobile = "91" + clean_mobile
+        
+        # Link taiyar karna
+        base_url = f"https://{request.host}" if "render.com" in request.host else request.host_url.rstrip('/')
+        bill_link = f"{base_url}/static/bills/{fname}"
+        
+        msg = (f"*JAGESHWAR CAR CARE*\n\n"
+               f"Hello {owner},\n"
+               f"Aapki gaadi *{car}* taiyar hai.\n"
+               f"Total Bill: *Rs. {total}*\n\n"
+               f"Download Bill: {bill_link}\n\n"
+               f"Thank you!")
+               
+        encoded_msg = urllib.parse.quote(msg)
+        whatsapp_url = f"https://wa.me/{clean_mobile}?text={encoded_msg}"
+        return redirect(whatsapp_url)
+    
+    # Normal return agar sirf generate kiya
+    flash(f"Bill Generated Successfully for {car}!")
+    return redirect(url_for('index'))
 
 @app.route('/view_bills')
 @login_required
@@ -452,13 +574,21 @@ def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], fi
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
 
 @app.route('/admin_dashboard')
+@login_required  # <--- Ye zaroori hai!
 def admin_dashboard():
-    # Database se asli numbers nikalna
+    # Safety Lock: Agar role Owner nahi hai, toh bhaga do
+    if current_user.role != 'Owner' and current_user.role != 'admin':
+        flash("Aapko yahan aane ki ijazat nahi hai!", "danger")
+        return redirect(url_for('client_dashboard'))
+    # if current_user.role != 'admin':
+    #     return "Access Denied! Aap admin nahi hain.", 403
+    if current_user.role != 'admin':
+        return redirect(url_for('index'))
+    
     total_revenue = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
     total_clients = ClientData.query.count()
     total_bills = Bill.query.count()
 
-    # Ye values HTML ko bhejna zaroori hai
     return render_template('admin_dashboard.html', 
                            total_revenue=total_revenue, 
                            total_clients=total_clients, 
