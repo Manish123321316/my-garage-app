@@ -11,6 +11,8 @@ from sqlalchemy import func
 
 
 app = Flask(__name__)
+# app.py mein top par
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000 # 1 Year cache
 app.config['SECRET_KEY'] = 'my-super-secret-key-123' # Ye line zaroori hai Flash messages ke liye
 # Naya Neon Database Link
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neondb_owner:npg_L40ycfqeIAGF@ep-fragrant-term-a1v7voar-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
@@ -49,10 +51,17 @@ login_manager.login_view = 'login'
 @app.before_request
 def update_last_seen():
     if current_user.is_authenticated:
-        from datetime import datetime
-        current_user.last_seen = datetime.now()
-        db.session.commit()
-
+        # Check karo ki kya 5 minute se zyada ho gaye hain?
+        now = datetime.now()
+        last_seen = current_user.last_seen
+        
+        # Agar last_seen pehle kabhi set nahi hua ya 5 min purana hai, tabhi update karo
+        if not last_seen or (now - last_seen) > timedelta(minutes=5):
+            current_user.last_seen = now
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback() # Error aaye toh crash na ho
 
 
 # --- Models ---
