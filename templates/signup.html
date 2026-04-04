@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container d-flex justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="card p-4 shadow-lg text-white" style="width: 400px; background: rgba(0,0,0,0.7); border-radius: 15px; border: 1px solid #00d4ff;">
+        <h3 class="text-center mb-4" style="font-family: 'Orbitron', sans-serif;">Client Sign Up</h3>
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label">Apna Naam</label>
+                <input type="text" name="name" class="form-control bg-dark text-white border-secondary" placeholder="Full Name" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Mobile Number</label>
+                <input type="text" name="mobile" class="form-control bg-dark text-white border-secondary" placeholder="10 digit mobile" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control bg-dark text-white border-secondary" placeholder="Choose username" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control bg-dark text-white border-secondary" placeholder="Create password" required>
+            </div>
+            <button type="submit" class="btn btn-info w-100 mt-2">Register Now</button>
+        </form>
+        <div class="text-center mt-3 small">
+            Purane customer ho? <a href="{{ url_for('login') }}" class="text-info">Login Karen</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
