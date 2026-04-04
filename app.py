@@ -231,7 +231,7 @@ def signup():
             db.session.add(new_user)
             db.session.commit()
             print(f"Naya user bana: {username}, Role: {new_user.role}") # Terminal mein check karne ke liye
-            flash('Account ban gaya! Login karein.', 'success')
+            flash('Account created successfully.', 'success')
             return redirect(url_for('login'))
         except Exception as e:
             db.session.rollback()
