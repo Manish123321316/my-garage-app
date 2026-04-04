@@ -25,8 +25,10 @@ app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['BILL_FOLDER'] = 'static/bills'
 # Ye 4 lines speed badha dengi
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_size": 10,          # Connections pehle se open rahenge
+    "max_overflow": 20,       # Load badhne par extra connections
     "pool_pre_ping": True,
-    "pool_recycle": 300,
+    "pool_recycle": 60,
 }
 db = SQLAlchemy(app)
 
@@ -50,20 +52,20 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-@app.before_request
-def update_last_seen():
-    if current_user.is_authenticated:
-        # Check karo ki kya 5 minute se zyada ho gaye hain?
-        now = datetime.now()
-        last_seen = current_user.last_seen
+# @app.before_request
+# def update_last_seen():
+#     if current_user.is_authenticated:
+#         # Check karo ki kya 5 minute se zyada ho gaye hain?
+#         now = datetime.now()
+#         last_seen = current_user.last_seen
         
-        # Agar last_seen pehle kabhi set nahi hua ya 5 min purana hai, tabhi update karo
-        if not last_seen or (now - last_seen) > timedelta(minutes=5):
-            current_user.last_seen = now
-            try:
-                db.session.commit()
-            except Exception:
-                db.session.rollback() # Error aaye toh crash na ho
+#         # Agar last_seen pehle kabhi set nahi hua ya 5 min purana hai, tabhi update karo
+#         if not last_seen or (now - last_seen) > timedelta(minutes=5):
+#             current_user.last_seen = now
+#             try:
+#                 db.session.commit()
+#             except Exception:
+#                 db.session.rollback() # Error aaye toh crash na ho
 
 
 # --- Models ---
@@ -262,48 +264,44 @@ def logout():
 @app.route('/')
 @login_required
 def index():
-    # --- 1. ROLE-WISE LIVE USER LOGIC ---
     from datetime import datetime, timedelta
-    # 30 seconds ka gap rakha hai taaki logout hote hi count gir jaye
     threshold = datetime.now() - timedelta(seconds=10)
     
-    # Sirf Clients kitne online hain
+    # 1. Online Users (Ye number hai, toh .count() sahi hai)
     active_clients = User.query.filter(User.last_seen >= threshold, User.role == 'Client').count()
-    # Sirf Team (Owner) kitne online hain
     active_team = User.query.filter(User.last_seen >= threshold, User.role == 'Owner').count()
-    # Total count (Backup ke liye)
     active_count = active_clients + active_team
 
     # --- 2. CLIENT DASHBOARD LOGIC ---
     if current_user.role == 'Client':
-        if current_user.is_premium and datetime.now() > current_user.sub_end_date:
+        if current_user.is_premium and current_user.sub_end_date and datetime.now() > current_user.sub_end_date:
             current_user.is_premium = False
             db.session.commit()
             
-        bookings = Booking.query.filter_by(client_name=current_user.username).order_by(Booking.id.desc()).all()
-        pay_reqs = PaymentRequest.query.filter_by(client_id=current_user.id).order_by(PaymentRequest.id.desc()).all()
+        # Yahan .all() chahiye kyunki dashboard par list dikhani hai
+        bookings = Booking.query.filter_by(client_name=current_user.username).order_by(Booking.id.desc()).limit(10).all()
+        pay_reqs = PaymentRequest.query.filter_by(client_id=current_user.id).order_by(PaymentRequest.id.desc()).limit(5).all()
         notices = Notice.query.filter(Notice.visible_to.in_(['All', 'Client'])).all()
         
         return render_template('client_dash.html', 
                                bookings=bookings, 
                                pay_reqs=pay_reqs, 
                                notices=notices, 
-                               services=Service.query.all(), 
+                               services=Service.query.limit(10).all(), 
                                plans=SubPlan.query.all(), 
                                active_count=active_count)
 
-    # --- 3. OWNER/ADMIN LOGIC (Stats calculation) ---
-    # from app import ClientData, Bill, PaymentRequest, Booking, Feedback, SubPlan, Service # Ensure imports
-    
+    # --- 3. OWNER/ADMIN LOGIC ---
     t_rev = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
-    t_cli = ClientData.query.count()
+    t_cli = ClientData.query.count() # Ye stats box ke liye hai, .count() sahi hai
     t_bil = Bill.query.count()
     
     stats = {'clients': t_cli, 'bills': t_bil, 'income': t_rev}
     
     pay_reqs_data = []
     if current_user.role == 'Owner' or current_user.p_stats:
-        raw_reqs = PaymentRequest.query.filter_by(status='Pending').all()
+        # Loop ke liye hamesha .all() chahiye hota hai
+        raw_reqs = PaymentRequest.query.filter_by(status='Pending').limit(10).all()
         for r in raw_reqs:
             p = SubPlan.query.get(r.plan_id)
             pay_reqs_data.append({
@@ -313,10 +311,10 @@ def index():
                 'details': p.details if p else ""
             })
 
-    pending_bookings = Booking.query.filter_by(status='Pending').all()
-    feedbacks = Feedback.query.order_by(Feedback.id.desc()).all()
+    # Table ke liye .all() use karo
+    pending_bookings = Booking.query.filter_by(status='Pending').limit(10).all()
+    feedbacks = Feedback.query.order_by(Feedback.id.desc()).limit(5).all() 
     
-    # --- 4. FINAL RENDER (Sab variables bhej diye) ---
     return render_template('index.html', 
                            active_clients=active_clients, 
                            active_team=active_team,
@@ -324,12 +322,11 @@ def index():
                            stats=stats, 
                            bookings=pending_bookings, 
                            pay_reqs=pay_reqs_data, 
-                           services=Service.query.all(), 
+                           services=Service.query.limit(10).all(), 
                            feedbacks=feedbacks,
                            total_revenue=t_rev, 
                            total_clients=t_cli, 
                            total_bills=t_bil)
-    # --- YAHAN TAK ---
 
 @app.route('/approve_sub', methods=['POST'])
 @login_required
