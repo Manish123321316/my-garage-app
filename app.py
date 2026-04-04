@@ -76,6 +76,7 @@ class User(UserMixin, db.Model):
     sub_end_date = db.Column(db.DateTime)
     admin_reply = db.Column(db.String(200))
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+    is_verified = db.Column(db.Boolean, default=False)
 
 class SubPlan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -114,7 +115,7 @@ class Service(db.Model):
 def update_last_seen():
     if current_user.is_authenticated:
         current_user.last_seen = datetime.now()
-        # db.session.commit()   
+        db.session.commit()   
 
 # 2. Add Service ka Route aisa hona chahiye
 @app.route('/add_service', methods=['POST'])
@@ -186,19 +187,17 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(username=username).first()
 
-        # Normal password check (Kyunki aapne hash hata diya hai)
         if user and user.password == password:
-            login_user(user)
+            if not user.is_verified:
+                flash("Your account is still PENDING approval. Please wait for 1-2 hours or contact Author.", "warning")
+                return redirect(url_for('login'))
             
-            # Check karo: Screenshot mein admin ka role 'Owner' dikh raha hai
-            if user.role == 'Owner' or user.role == 'admin':
-                return redirect(url_for('admin_dashboard'))
-            else:
-                # Client ko uska apna dashboard ya index page dikhao
-                return redirect(url_for('index')) 
-        
-        flash('Username ya Password galat hai!', 'danger')
+            login_user(user)
+            return redirect(url_for('index'))
+        else:
+            flash("Invalid credentials!", "danger")
     return render_template('login.html')
+
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -208,30 +207,42 @@ def signup():
         name = request.form.get('name')
         mobile = request.form.get('mobile')
 
-        # Pehle check karo ki username khali toh nahi
-        if not username or not password:
-            flash("Username aur Password zaroori hain!", "danger")
+        # 1. Khali fields check karo
+        if not username or not password or not mobile:
+            flash("Sari details (Username, Password, Mobile) bharna zaroori hai!", "danger")
             return redirect(url_for('signup'))
 
-        # Naya user banana (Force 'client' role)
+        # 2. Check karo mobile number pehle se toh nahi hai (Faltu accounts rokne ke liye)
+        existing_mobile = User.query.filter_by(mobile=mobile).first()
+        if existing_mobile:
+            flash("Ye mobile number pehle se registered hai!", "danger")
+            return redirect(url_for('signup'))
+
+        # 3. Naya user banana (is_verified=False taaki Admin approve kare)
         new_user = User(
             username=username,
             password=password, 
-            role='Client',  # <-- Check karo spelling sahi hai na?
+            role='Client',
             name=name,
-            mobile=mobile
+            mobile=mobile,
+            is_verified=False  # <-- Ye sabse zaroori hai
         )
         
         try:
             db.session.add(new_user)
             db.session.commit()
-            print(f"Naya user bana: {username}, Role: {new_user.role}") # Terminal mein check karne ke liye
-            flash('Account created successfully.', 'success')
+            # signup route mein jahan db.session.commit() hai:
+            flash("Request has been sent to Author. Please try after 1-2hr.", "success")
             return redirect(url_for('login'))
+            
+            # Aapka manga hua message
+            flash("Request has been sent to Author. Please try logging in after 1-2 hours once Admin approves your account.", "info")
+            return redirect(url_for('login'))
+            
         except Exception as e:
             db.session.rollback()
             print(f"Error: {e}")
-            flash("Username pehle se maujood hai!", "danger")
+            flash("Username pehle se maujood hai! Dusra try karein.", "danger")
             
     return render_template('signup.html')
 
@@ -339,6 +350,28 @@ def approve_sub():
     db.session.commit(); flash("Subscription Processed!"); return redirect(url_for('index'))
 
 import urllib.parse  # Ye line top par imports mein check kar lena
+
+@app.route('/approve_user/<int:user_id>')
+@login_required
+def approve_user(user_id):
+    if current_user.role != 'Owner': return "Access Denied", 403
+    user = User.query.get(user_id)
+    if user:
+        user.is_verified = True
+        db.session.commit()
+        flash(f"User {user.username} has been APPROVED!", "success")
+    return redirect(url_for('manage_users'))
+
+@app.route('/reject_user/<int:user_id>')
+@login_required
+def reject_user(user_id):
+    if current_user.role != 'Owner': return "Access Denied", 403
+    user = User.query.get(user_id)
+    if user:
+        db.session.delete(user) # Reject matlab data delete
+        db.session.commit()
+        flash(f"User {user.username} request REJECTED and deleted.", "danger")
+    return redirect(url_for('manage_users'))
 
 @app.route('/generate_bill', methods=['POST'])
 @login_required
