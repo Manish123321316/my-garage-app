@@ -185,8 +185,19 @@
                     <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">+ Add Service</button>
                     <h4 class="fw-bold mb-0 text-success">Total: Rs. <span id="grand">0.00</span></h4>
                 </div>
+
+                <dic>
+
                 <input type="hidden" name="grand_total_val" id="grand_val">
-                <button class="btn btn-primary w-100 mt-4 fw-bold">GENERATE BILL</button>
+                <button type="submit" name="action" value="only_bill" class="btn btn-outline-secondary w-50">
+                    <i class="fas fa-file-invoice"></i> Only Generate
+                </button>
+
+                <button type="submit" name="action" value="bill_whatsapp" class="btn btn-success w-50">
+                    <i class="fab fa-whatsapp"></i> Generate & Send
+                </button>
+
+                </dic>
             </form>
         </div>
     </div>
@@ -326,6 +337,37 @@
         // Baki code...
         var myModal = new bootstrap.Modal(document.getElementById('replyModal'));
         myModal.show();
+    }
+</script>
+
+<script>
+    function filterBills() {
+        let input = document.getElementById("billSearch").value.toUpperCase();
+        let rows = document.querySelector("table tbody").rows; 
+        for (let i = 0; i < rows.length; i++) {
+            if (rows[i].cells.length > 1) { // Error se bachne ke liye check
+                let carNo = rows[i].cells[0].textContent.toUpperCase();
+                let name = rows[i].cells[1].textContent.toUpperCase();
+                rows[i].style.display = (carNo.includes(input) || name.includes(input)) ? "" : "none";
+            }
+        }
+    }
+
+    function sendOldBill(mobile, owner, car, total, filename) {
+        let cleanMobile = String(mobile).replace(/\D/g, ''); 
+        if (!cleanMobile.startsWith('91') && cleanMobile.length === 10) {
+            cleanMobile = '91' + cleanMobile;
+        }
+
+        let billLink = window.location.origin + "/static/bills/" + filename;
+        let message = "*JAGESHWAR CAR CARE*\n\n" +
+                      "Hello " + owner + ",\n" +
+                      "Aapki gaadi *" + car + "* ka purana bill yahan hai.\n" +
+                      "Total Amount: *Rs. " + total + "*\n\n" +
+                      "Download Link: " + billLink;
+
+        let whatsappUrl = "https://api.whatsapp.com/send?phone=" + cleanMobile + "&text=" + encodeURIComponent(message);
+        window.open(whatsappUrl, '_blank');
     }
 </script>
 
