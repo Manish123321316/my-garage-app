@@ -539,19 +539,41 @@ def settings():
 @login_required
 def manage_users():
     if current_user.role != 'Owner': return "Denied"
+    
     if request.method == 'POST':
         uid = request.form.get('user_id')
+        
         if uid:
+            # Puraane User ko Edit karna
             u = User.query.get(uid)
-            u.username, u.password, u.role, u.p_stats = request.form['u'], request.form['p'], request.form['r'], 'st' in request.form
+            u.username = request.form.get('u')
+            u.password = request.form.get('p')
+            u.role = request.form.get('r')
+            u.mobile = request.form.get('mobile')  # Mobile number update
+            u.p_stats = 'st' in request.form
             u.is_premium = 'is_p' in request.form
+            
             if u.is_premium:
-                u.plan_name, u.sub_end_date = request.form.get('p_name'), datetime.now() + timedelta(days=30)
+                u.plan_name = request.form.get('p_name')
+                u.sub_end_date = datetime.now() + timedelta(days=30)
                 if not u.sub_start_date: u.sub_start_date = datetime.now()
-            else: u.plan_name, u.is_premium = None, False
+            else: 
+                u.plan_name, u.is_premium = None, False
         else:
-            db.session.add(User(username=request.form['u'], password=request.form['p'], role=request.form['r'], p_stats='st' in request.form))
-        db.session.commit(); flash("User Updated!")
+            # Naya User Create karna (Admin ke through)
+            new_user = User(
+                username=request.form.get('u'), 
+                password=request.form.get('p'), 
+                role=request.form.get('r'), 
+                mobile=request.form.get('mobile'), # Mobile save karna
+                p_stats='st' in request.form,
+                is_verified=True  # <--- YE ZAROORI HAI (Direct Active List mein jayega)
+            )
+            db.session.add(new_user)
+            
+        db.session.commit()
+        flash("User Saved Successfully!", "success")
+        
     return render_template('manage_users.html', users=User.query.all())
 
 @app.route('/delete/<string:type>/<int:id>')
