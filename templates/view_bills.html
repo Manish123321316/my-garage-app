@@ -6,6 +6,13 @@
         <table class="table table-hover align-middle">
             <thead class="table-light"><tr><th>Date</th><th>Car No / Model</th><th>Owner</th><th>Amount</th><th>Action</th></tr></thead>
             <tbody>
+                <div class="mb-3 mt-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-success text-white"><i class="fas fa-search"></i></span>
+                    <input type="text" id="billSearch" class="form-control" placeholder="Car No. ya Naam se search karein..." onkeyup="filterBills()">
+                </div>
+            </div>
+
                 {% for b in bills %}
                 <tr>
                     <td>{{b.date_time.strftime('%d-%m-%Y')}}</td>
@@ -14,6 +21,10 @@
                     <td class="fw-bold text-success">Rs. {{b.total_amount}}</td>
                     <td>
                         <a href="/view_pdf/{{b.filename}}" target="_blank" class="btn btn-sm btn-info text-white shadow-sm"><i class="fas fa-file-pdf"></i> View Bill</a>
+                        <button onclick="sendOldBill('{{ b.mobile }}', '{{ b.owner_name }}', '{{ b.car_number }}', '{{ b.total_amount }}', '{{ b.filename }}')" 
+                            class="btn btn-sm btn-success ms-1">
+                        <i class="fab fa-whatsapp"></i> Send
+                    </button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -42,4 +53,53 @@
         </div>
     </div>
 </div>
+
+<script>
+    // 1. SEARCH FUNCTION (Jo ab kaam karega)
+    function filterBills() {
+        // Search input se text uthao
+        let input = document.getElementById("billSearch").value.toUpperCase();
+        // Table ki saari rows pakdo
+        let rows = document.querySelector("table tbody").rows;
+
+        for (let i = 0; i < rows.length; i++) {
+            // Pehla column (Car No) aur doosra column (Owner Name)
+            let carNo = rows[i].cells[0] ? rows[i].cells[0].textContent.toUpperCase() : "";
+            let ownerName = rows[i].cells[1] ? rows[i].cells[1].textContent.toUpperCase() : "";
+            
+            // Agar dono mein se kahin bhi search text match hota hai
+            if (carNo.includes(input) || ownerName.includes(input)) {
+                rows[i].style.display = ""; // Dikhao
+            } else {
+                rows[i].style.display = "none"; // Chhupa do
+            }
+        }
+    }
+
+    // 2. WHATSAPP FUNCTION (Aapka wala code)
+    function sendOldBill(mobile, owner, car, total, filename) {
+        let targetMobile = mobile;
+
+        if (!targetMobile || targetMobile === "None" || targetMobile === "" || targetMobile === "undefined") {
+            targetMobile = prompt("Bhai, is bill mein number nahi mila. Kaunse number par bheju?", "");
+        }
+
+        if (!targetMobile || targetMobile.length < 10) {
+            return; 
+        }
+
+        let cleanMobile = String(targetMobile).replace(/\D/g, ''); 
+        if (cleanMobile.length === 10) cleanMobile = '91' + cleanMobile;
+
+        let billLink = window.location.origin + "/static/bills/" + filename;
+        let message = "*JAGESHWAR CAR CARE*\n\n" +
+                      "Hello " + owner + ",\n" +
+                      "Aapki gaadi *" + car + "* ka bill yahan hai.\n" +
+                      "Total: *Rs. " + total + "*\n\n" +
+                      "Download: " + billLink;
+
+        window.open("https://api.whatsapp.com/send?phone=" + cleanMobile + "&text=" + encodeURIComponent(message), '_blank');
+    }
+</script>
+
 {% endblock %}
