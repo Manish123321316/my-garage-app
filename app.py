@@ -52,20 +52,13 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# @app.before_request
-# def update_last_seen():
-#     if current_user.is_authenticated:
-#         # Check karo ki kya 5 minute se zyada ho gaye hain?
-#         now = datetime.now()
-#         last_seen = current_user.last_seen
-        
-#         # Agar last_seen pehle kabhi set nahi hua ya 5 min purana hai, tabhi update karo
-#         if not last_seen or (now - last_seen) > timedelta(minutes=5):
-#             current_user.last_seen = now
-#             try:
-#                 db.session.commit()
-#             except Exception:
-#                 db.session.rollback() # Error aaye toh crash na ho
+@app.before_request
+def update_last_seen():
+    if current_user.is_authenticated:
+        # Commit mat karo, bas object update karke chhod do. 
+        # Jab aap koi aur kaam (like bill generate ya status update) karoge, 
+        # tab ye apne aap save ho jayega. Speed par asar nahi padega.
+        current_user.last_seen = datetime.now()
 
 
 # --- Models ---
@@ -121,7 +114,7 @@ class Service(db.Model):
 def update_last_seen():
     if current_user.is_authenticated:
         current_user.last_seen = datetime.now()
-        db.session.commit()   
+        # db.session.commit()   
 
 # 2. Add Service ka Route aisa hona chahiye
 @app.route('/add_service', methods=['POST'])
