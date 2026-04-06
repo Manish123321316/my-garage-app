@@ -21,9 +21,9 @@ app = Flask(__name__)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True 
-app.config['MAIL_USERNAME'] = 'manish.b2bdesign@gmail.com'
-app.config['MAIL_PASSWORD'] = 'xeuypqevcyligqaw' # <-- YAHAN SPACES HATA DIYE HAIN
+app.config['MAIL_USE_SSL'] = True # 465 ke saath SSL True hota hai
+app.config['MAIL_USERNAME'] = 'manish.b2bdesign@gmail.com' # Aapki Gmail ID
+app.config['MAIL_PASSWORD'] = 'xeuy pqev cyli gqaw'  # Wo 16-digit wala App Password jo Step 2 mein banaya
 app.config['MAIL_DEFAULT_SENDER'] = ('Jageshwar Car Care', 'manish.b2bdesign@gmail.com')
 
 mail = Mail(app)
@@ -200,12 +200,15 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        
+        # Username se user dhoondo
         user = User.query.filter_by(username=username).first()
 
-        # 1. Password check karo
+        # 1. Password check (Hash check agar use kar rahe ho toh use check_password_hash)
         if user and user.password == password:
             
             # 2. AGAR USER OWNER HAI -> TOH OTP BHEJO
+            # Dhyan dein: 'Owner' ka 'O' capital hona chahiye jaisa model mein hai
             if user.role == 'Owner':
                 otp = str(random.randint(100000, 999999))
                 session['otp_check'] = otp
@@ -219,28 +222,35 @@ def login():
                 </tr>
                 """
                 
-                # --- ISKO TRY-EXCEPT MEIN DAAL DIYA TAKI ERROR NA AAYE ---
                 try:
+                    # Yahan recipient_email zaroor bhejें
                     send_notification(
                         subject="🔐 Owner Login Verification",
                         title="Security Verification Required",
                         details_table=otp_table,
                         action_url="#",
-                        action_text="Enter this code on login page"
+                        action_text="Enter this code on login page",
+                        recipient_email='manish.b2bdesign@gmail.com' # Ya user.email agar store hai
                     )
                     flash("Owner OTP sent to your email!", "warning")
                     return redirect(url_for('verify_otp'))
                 except Exception as e:
-                    print(f"Email Error: {e}")
-                    flash(f"Email nahi ja raha! Error: {e}", "danger")
-                    # Agar email fail ho toh error dikhaye, loading na chalti rahe
+                    print(f"❌ Email Error: {e}")
+                    flash("Email system mein dikkat hai. Please logs check karein.", "danger")
                     return redirect(url_for('login'))
 
-            # 3. AGAR NORMAL USER HAI -> DIRECT LOGIN
+            # 3. AGAR USER VERIFIED NAHI HAI (Client ke liye)
+            if user.role == 'Client' and not user.is_verified:
+                flash("Aapka account abhi tak approved nahi hua hai.", "info")
+                return redirect(url_for('login'))
+
+            # 4. AGAR NORMAL VERIFIED USER HAI -> DIRECT LOGIN
             login_user(user)
+            flash(f"Welcome back, {user.username}!", "success")
             return redirect(url_for('index'))
 
         flash("Ghalat Username ya Password!", "danger")
+        
     return render_template('login.html')
 
 @app.route('/verify_otp', methods=['GET', 'POST'])
@@ -757,31 +767,35 @@ def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], fi
 @app.route('/clients')
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
 
+import threading # Sabse upar import kar lena
+
+# Is function ko 'app.run' ke upar kahin bhi sahi se paste karein
 def send_async_email(app, msg):
     with app.app_context():
         try:
             mail.send(msg)
-            print("✅ Email Sent successfully!")
+            print("✅ Email Sent Successfully!")
         except Exception as e:
             print(f"❌ Email Error: {e}")
 
-def send_notification(subject, title, details_table, action_url="#", action_text="View Details"):
-    msg = Message(
-        subject=subject,
-        recipients=['manish.b2bdesign@gmail.com'],
-        html=f"<h2>{title}</h2><table border='1'>{details_table}</table><br><a href='{action_url}'>{action_text}</a>"
-    )
+def send_notification(subject, title, details_table, action_url="#", action_text="View Details", recipient_email='manish.b2bdesign@gmail.com'):
+    html_content = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4;">
+            <div style="max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">
+                <h2 style="color: #333;">{title}</h2>
+                <div style="margin: 20px 0;">{details_table}</div>
+                <a href="{action_url}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">{action_text}</a>
+            </div>
+        </body>
+    </html>
+    """
+    msg = Message(subject=subject,
+                  recipients=[recipient_email],
+                  html=html_content)
     
-    # Background mein bhejte hain taaki page load na leta rahe
-    def send_email(app, msg):
-        with app.app_context():
-            try:
-                mail.send(msg)
-            except Exception as e:
-                print(f"❌ Email Failed: {e}")
-
-    # Naya rasta (Thread) shuru karo
-    thread = threading.Thread(target=send_email, args=(app, msg))
+    # Threading taaki server hang na ho
+    thread = threading.Thread(target=send_async_email, args=(app, msg))
     thread.start()
 
 @app.route('/admin_dashboard')
