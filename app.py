@@ -19,11 +19,11 @@ import threading
 app = Flask(__name__)
 # Mail settings
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True # 465 ke saath SSL True hota hai
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False # 465 ke saath SSL True hota hai
 app.config['MAIL_USERNAME'] = 'manish.b2bdesign@gmail.com' # Aapki Gmail ID
-app.config['MAIL_PASSWORD'] = 'xeuy pqev cyli gqaw'  # Wo 16-digit wala App Password jo Step 2 mein banaya
+app.config['MAIL_PASSWORD'] = 'xeuypqevcyligqaw'  # Wo  wala App Password jo Step 2 mein banaya
 app.config['MAIL_DEFAULT_SENDER'] = ('Jageshwar Car Care', 'manish.b2bdesign@gmail.com')
 
 mail = Mail(app)
