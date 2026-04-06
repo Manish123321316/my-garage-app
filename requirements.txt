@@ -4,3 +4,4 @@ Flask-Login
 fpdf
 gunicorn
 psycopg2-binary
+flask-mail
