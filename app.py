@@ -271,7 +271,7 @@ def index():
     from datetime import datetime, timedelta
     threshold = datetime.now() - timedelta(seconds=10)
     
-    # 1. Online Users (Ye number hai, toh .count() sahi hai)
+    # 1. Online Users
     active_clients = User.query.filter(User.last_seen >= threshold, User.role == 'Client').count()
     active_team = User.query.filter(User.last_seen >= threshold, User.role == 'Owner').count()
     active_count = active_clients + active_team
@@ -282,7 +282,6 @@ def index():
             current_user.is_premium = False
             db.session.commit()
             
-        # Yahan .all() chahiye kyunki dashboard par list dikhani hai
         bookings = Booking.query.filter_by(client_name=current_user.username).order_by(Booking.id.desc()).limit(10).all()
         pay_reqs = PaymentRequest.query.filter_by(client_id=current_user.id).order_by(PaymentRequest.id.desc()).limit(5).all()
         notices = Notice.query.filter(Notice.visible_to.in_(['All', 'Client'])).all()
@@ -297,14 +296,16 @@ def index():
 
     # --- 3. OWNER/ADMIN LOGIC ---
     t_rev = db.session.query(db.func.sum(Bill.total_amount)).scalar() or 0
-    t_cli = ClientData.query.count() # Ye stats box ke liye hai, .count() sahi hai
+    t_cli = ClientData.query.count()
     t_bil = Bill.query.count()
     
-    stats = {'clients': t_cli, 'bills': t_bil, 'income': t_rev}
+    # NEW: Pending Signup Requests Count (Database se check karega kitne is_verified=False hain)
+    pending_signups = User.query.filter_by(is_verified=False).count()
+    
+    stats = {'clients': t_cli, 'bills': t_bil, 'income': t_rev, 'pending_users': pending_signups}
     
     pay_reqs_data = []
     if current_user.role == 'Owner' or current_user.p_stats:
-        # Loop ke liye hamesha .all() chahiye hota hai
         raw_reqs = PaymentRequest.query.filter_by(status='Pending').limit(10).all()
         for r in raw_reqs:
             p = SubPlan.query.get(r.plan_id)
@@ -315,19 +316,15 @@ def index():
                 'details': p.details if p else ""
             })
 
-    # Table ke liye .all() use karo
     pending_bookings = Booking.query.filter_by(status='Pending').limit(10).all()
     feedbacks = Feedback.query.order_by(Feedback.id.desc()).limit(5).all() 
     
     return render_template('index.html', 
-                           active_clients=active_clients, 
-                           active_team=active_team,
                            active_count=active_count,
                            stats=stats, 
+                           pending_count=pending_signups, # Naam 'pending_count' rakho
                            bookings=pending_bookings, 
                            pay_reqs=pay_reqs_data, 
-                           services=Service.query.limit(10).all(), 
-                           feedbacks=feedbacks,
                            total_revenue=t_rev, 
                            total_clients=t_cli, 
                            total_bills=t_bil)
