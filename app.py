@@ -322,9 +322,10 @@ def index():
     return render_template('index.html', 
                            active_count=active_count,
                            stats=stats, 
-                           pending_count=pending_signups, # Naam 'pending_count' rakho
+                           pending_count=pending_signups, 
                            bookings=pending_bookings, 
                            pay_reqs=pay_reqs_data, 
+                           services=Service.query.all(),  # <--- YE LINE MISSING THI! Isko add karo
                            total_revenue=t_rev, 
                            total_clients=t_cli, 
                            total_bills=t_bil)
