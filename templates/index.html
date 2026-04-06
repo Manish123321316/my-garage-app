@@ -50,6 +50,16 @@
     </button>
 </div>
 
+{% if current_user.role == 'Owner' and pending_count > 0 %}
+<div class="alert alert-warning d-flex justify-content-between align-items-center shadow-sm border-0 mb-4">
+    <div>
+        <i class="fas fa-user-clock me-2"></i>
+        <strong>{{ pending_count }} New Signup Requests</strong> pending for approval.
+    </div>
+    <a href="/manage_users" class="btn btn-dark btn-sm fw-bold">Review Now</a>
+</div>
+{% endif %}
+
 {% if stats and current_user.role != 'Team' %}
 <div class="row g-3 mb-4">
     <div class="col-md-4">
