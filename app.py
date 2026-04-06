@@ -18,8 +18,9 @@ from flask import session # OTP ko yaad rakhne ke liye
 app = Flask(__name__)
 # Mail settings
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True # 465 ke saath SSL True hota hai
 app.config['MAIL_USERNAME'] = 'manish.b2bdesign@gmail.com' # Aapki Gmail ID
 app.config['MAIL_PASSWORD'] = 'xeuy pqev cyli gqaw'  # Wo 16-digit wala App Password jo Step 2 mein banaya
 app.config['MAIL_DEFAULT_SENDER'] = ('Jageshwar Car Care', 'manish.b2bdesign@gmail.com')
@@ -757,34 +758,17 @@ def clients(): return render_template('clients.html', clients=ClientData.query.a
 
 def send_notification(subject, title, details_table, action_url="#", action_text="View Details"):
     try:
-        # Simple HTML Template
-        html_content = f"""
-        <html>
-            <body>
-                <h2>{title}</h2>
-                <table border="1" style="border-collapse: collapse;">
-                    {details_table}
-                </table>
-                <br>
-                <a href="{action_url}">{action_text}</a>
-            </body>
-        </html>
-        """
-        
-        # Flask-Mail Message
         msg = Message(
             subject=subject,
-            recipients=['manish.b2bdesign@gmail.com'], # Asli ID check kar lena
-            html=html_content
+            recipients=['manish.b2bdesign@gmail.com'],
+            html=f"<h2>{title}</h2><table>{details_table}</table>"
         )
-        
-        # Sabse important change: 'with' block ko hata kar simple mail.send use karo
-        mail.send(msg)
-        print("✅ Mail Sent Successfully!")
-        
+        # Ye line Render par error se bachati hai
+        with app.app_context():
+            mail.send(msg)
+        print("✅ Mail Sent!")
     except Exception as e:
         print(f"❌ Mail Error: {e}")
-        # Error aane par hum Exception raise nahi karenge, bas print karenge
 
 @app.route('/admin_dashboard')
 @login_required  # <--- Ye zaroori hai!
