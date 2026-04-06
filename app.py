@@ -21,9 +21,9 @@ app = Flask(__name__)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True # 465 ke saath SSL True hota hai
-app.config['MAIL_USERNAME'] = 'manish.b2bdesign@gmail.com' # Aapki Gmail ID
-app.config['MAIL_PASSWORD'] = 'xeuy pqev cyli gqaw'  # Wo 16-digit wala App Password jo Step 2 mein banaya
+app.config['MAIL_USE_SSL'] = True 
+app.config['MAIL_USERNAME'] = 'manish.b2bdesign@gmail.com'
+app.config['MAIL_PASSWORD'] = 'xeuypqevcyligqaw' # <-- YAHAN SPACES HATA DIYE HAIN
 app.config['MAIL_DEFAULT_SENDER'] = ('Jageshwar Car Care', 'manish.b2bdesign@gmail.com')
 
 mail = Mail(app)
@@ -757,7 +757,13 @@ def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], fi
 @app.route('/clients')
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
 
-import threading # Sabse upar import kar lena
+def send_async_email(app, msg):
+    with app.app_context():
+        try:
+            mail.send(msg)
+            print("✅ Email Sent successfully!")
+        except Exception as e:
+            print(f"❌ Email Error: {e}")
 
 def send_notification(subject, title, details_table, action_url="#", action_text="View Details"):
     msg = Message(
