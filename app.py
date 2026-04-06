@@ -12,6 +12,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_mail import Mail, Message
 import random # OTP generate karne ke liye
 from flask import session # OTP ko yaad rakhne ke liye
+import threading
 
 
 
@@ -756,19 +757,26 @@ def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], fi
 @app.route('/clients')
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
 
+import threading # Sabse upar import kar lena
+
 def send_notification(subject, title, details_table, action_url="#", action_text="View Details"):
-    try:
-        msg = Message(
-            subject=subject,
-            recipients=['manish.b2bdesign@gmail.com'],
-            html=f"<h2>{title}</h2><table>{details_table}</table>"
-        )
-        # Ye line Render par error se bachati hai
+    msg = Message(
+        subject=subject,
+        recipients=['manish.b2bdesign@gmail.com'],
+        html=f"<h2>{title}</h2><table border='1'>{details_table}</table><br><a href='{action_url}'>{action_text}</a>"
+    )
+    
+    # Background mein bhejte hain taaki page load na leta rahe
+    def send_email(app, msg):
         with app.app_context():
-            mail.send(msg)
-        print("✅ Mail Sent!")
-    except Exception as e:
-        print(f"❌ Mail Error: {e}")
+            try:
+                mail.send(msg)
+            except Exception as e:
+                print(f"❌ Email Failed: {e}")
+
+    # Naya rasta (Thread) shuru karo
+    thread = threading.Thread(target=send_email, args=(app, msg))
+    thread.start()
 
 @app.route('/admin_dashboard')
 @login_required  # <--- Ye zaroori hai!
