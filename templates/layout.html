@@ -14,36 +14,49 @@
             font-family: 'Poppins', sans-serif;
         }
 
-        /* DARK MODE MASTER BLOCK */
-        body.dark-mode {
-            background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
-                              url("{{ url_for('static', filename='bg-beach.jpg') }}") !important;
-            background-size: cover !important;
-            background-position: center !important;
-            background-attachment: fixed !important;
-            color: white !important;
-        }
+        /* 2. DARK MODE MASTER BLOCK (Fixed) */
+            body.dark-mode {
+                background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
+                                url("{{ url_for('static', filename='bg-beach.jpg') }}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-attachment: fixed !important;
+                color: rgb(255, 255, 255) !important;
+            }
 
-        body.dark-mode .card, 
-        body.dark-mode .list-group-item, 
-        body.dark-mode .table, 
-        body.dark-mode .table tr, 
-        body.dark-mode .table td, 
-        body.dark-mode .table th,
-        body.dark-mode .form-control,
-        body.dark-mode .form-select,
-        body.dark-mode .modal-content,
-        body.dark-mode .dropdown-menu {
-            background: rgba(255, 255, 255, 0.1) !important;
-            backdrop-filter: blur(15px) !important;
-            -webkit-backdrop-filter: blur(15px) !important;
-            color: white !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        }
+            /* Glass Effect for all elements */
+            body.dark-mode .card, 
+            body.dark-mode .list-group-item, 
+            body.dark-mode .table, 
+            body.dark-mode .table tr, 
+            body.dark-mode .table td, 
+            body.dark-mode .table th,
+            body.dark-mode .form-control,
+            body.dark-mode .form-select,
+            body.dark-mode .modal-content,
+            body.dark-mode .dropdown-menu {
+                background: rgba(255, 255, 255, 0.1) !important;
+                backdrop-filter: blur(15px) !important;
+                -webkit-backdrop-filter: blur(15px) !important;
+                color: white !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            }
 
-        body.dark-mode table, body.dark-mode thead, body.dark-mode tbody, body.dark-mode .list-group-item * {
-            color: white !important;
-        }
+            /* --- THE MAIN FIX FOR DROPDOWN --- */
+            /* Isko alag se rakhna zaroori hai */
+            body.dark-mode select option,
+            body.dark-mode .form-select option {
+                background-color: #212529 !important; /* Dark Background */
+                color: #ffffff !important;           /* White Text */
+            }
+
+            /* Text force white for tables and lists */
+            body.dark-mode table, 
+            body.dark-mode thead, 
+            body.dark-mode tbody, 
+            body.dark-mode .list-group-item * {
+                color: white !important;
+            }
 
         /* Navbar Theme Toggle Button Styling */
         #themeToggler {
