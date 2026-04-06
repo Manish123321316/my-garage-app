@@ -21,8 +21,8 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'manish.b2bdesign@gmail.com' # Aapki Gmail ID
-app.config['MAIL_PASSWORD'] = 'xeuypqevcyligqaw'  # App Password jo Step 2 mein banaya
-app.config['MAIL_DEFAULT_SENDER'] = 'manish.b2bdesign@gmail.com'
+app.config['MAIL_PASSWORD'] = 'xeuy pqev cyli gqaw'  # Wo 16-digit wala App Password jo Step 2 mein banaya
+app.config['MAIL_DEFAULT_SENDER'] = ('Jageshwar Car Care', 'manish.b2bdesign@gmail.com')
 
 mail = Mail(app)
 # app.py mein top par
@@ -205,11 +205,10 @@ def login():
             
             # 2. AGAR USER OWNER HAI -> TOH OTP BHEJO
             if user.role == 'Owner':
-                otp = str(random.randint(100000, 999999)) # 6-digit OTP
-                session['otp_check'] = otp # Session mein save kiya
+                otp = str(random.randint(100000, 999999))
+                session['otp_check'] = otp
                 session['otp_user_id'] = user.id
                 
-                # OTP Table Design
                 otp_table = f"""
                 <tr>
                     <td style="padding: 20px; text-align: center; background-color: #f8f9fa; border: 2px dashed #ffc107; border-radius: 10px;">
@@ -218,17 +217,22 @@ def login():
                 </tr>
                 """
                 
-                # Hamara Master Email Function use karo
-                send_notification(
-                    subject="🔐 Owner Login Verification",
-                    title="Security Verification Required",
-                    details_table=otp_table,
-                    action_url="#", # Yahan link ki zaroorat nahi
-                    action_text="Enter this code on login page"
-                )
-                
-                flash("Owner OTP sent to your email!", "warning")
-                return redirect(url_for('verify_otp'))
+                # --- ISKO TRY-EXCEPT MEIN DAAL DIYA TAKI ERROR NA AAYE ---
+                try:
+                    send_notification(
+                        subject="🔐 Owner Login Verification",
+                        title="Security Verification Required",
+                        details_table=otp_table,
+                        action_url="#",
+                        action_text="Enter this code on login page"
+                    )
+                    flash("Owner OTP sent to your email!", "warning")
+                    return redirect(url_for('verify_otp'))
+                except Exception as e:
+                    print(f"Email Error: {e}")
+                    flash(f"Email nahi ja raha! Error: {e}", "danger")
+                    # Agar email fail ho toh error dikhaye, loading na chalti rahe
+                    return redirect(url_for('login'))
 
             # 3. AGAR NORMAL USER HAI -> DIRECT LOGIN
             login_user(user)
