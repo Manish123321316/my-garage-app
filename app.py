@@ -9,10 +9,22 @@ from datetime import datetime, timedelta
 from sqlalchemy import func
 import urllib.parse
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_mail import Mail, Message
+import random # OTP generate karne ke liye
+from flask import session # OTP ko yaad rakhne ke liye
 
 
 
 app = Flask(__name__)
+# Mail settings
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'manish.b2bdesign@gmail.com' # Aapki Gmail ID
+app.config['MAIL_PASSWORD'] = 'xeuy pqev cyli gqaw'  # Wo 16-digit wala App Password jo Step 2 mein banaya
+app.config['MAIL_DEFAULT_SENDER'] = 'manish.b2bdesign@gmail.com'
+
+mail = Mail(app)
 # app.py mein top par
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000 # 1 Year cache
 app.config['SECRET_KEY'] = 'my-super-secret-key-123' # Ye line zaroori hai Flash messages ke liye
@@ -29,6 +41,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "max_overflow": 20,       # Load badhne par extra connections
     "pool_pre_ping": True,
     "pool_recycle": 60,
+    
 }
 db = SQLAlchemy(app)
 
@@ -187,16 +200,65 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(username=username).first()
 
+        # 1. Password check karo
         if user and user.password == password:
-            if not user.is_verified:
-                flash("Your account is still PENDING approval. Please wait for 1-2 hours or contact Author.", "warning")
-                return redirect(url_for('login'))
             
+            # 2. AGAR USER OWNER HAI -> TOH OTP BHEJO
+            if user.role == 'Owner':
+                otp = str(random.randint(100000, 999999)) # 6-digit OTP
+                session['otp_check'] = otp # Session mein save kiya
+                session['otp_user_id'] = user.id
+                
+                # OTP Table Design
+                otp_table = f"""
+                <tr>
+                    <td style="padding: 20px; text-align: center; background-color: #f8f9fa; border: 2px dashed #ffc107; border-radius: 10px;">
+                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #212529;">{otp}</span>
+                    </td>
+                </tr>
+                """
+                
+                # Hamara Master Email Function use karo
+                send_notification(
+                    subject="🔐 Owner Login Verification",
+                    title="Security Verification Required",
+                    details_table=otp_table,
+                    action_url="#", # Yahan link ki zaroorat nahi
+                    action_text="Enter this code on login page"
+                )
+                
+                flash("Owner OTP sent to your email!", "warning")
+                return redirect(url_for('verify_otp'))
+
+            # 3. AGAR NORMAL USER HAI -> DIRECT LOGIN
             login_user(user)
             return redirect(url_for('index'))
-        else:
-            flash("Invalid credentials!", "danger")
+
+        flash("Ghalat Username ya Password!", "danger")
     return render_template('login.html')
+
+@app.route('/verify_otp', methods=['GET', 'POST'])
+def verify_otp():
+    if 'otp_check' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        user_otp = request.form.get('otp')
+        
+        if user_otp == session.get('otp_check'):
+            user = User.query.get(session.get('otp_user_id'))
+            login_user(user)
+            
+            # Session saaf karo
+            session.pop('otp_check', None)
+            session.pop('otp_user_id', None)
+            
+            flash("Welcome Back, Owner!", "success")
+            return redirect(url_for('index'))
+        else:
+            flash("Galat OTP! Fir se koshish karein.", "danger")
+            
+    return render_template('verify_otp.html')
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -207,42 +269,55 @@ def signup():
         name = request.form.get('name')
         mobile = request.form.get('mobile')
 
-        # 1. Khali fields check karo
+        # 1. Khali fields check
         if not username or not password or not mobile:
-            flash("Sari details (Username, Password, Mobile) bharna zaroori hai!", "danger")
+            flash("Sari details bharna zaroori hai!", "danger")
             return redirect(url_for('signup'))
 
-        # 2. Check karo mobile number pehle se toh nahi hai (Faltu accounts rokne ke liye)
-        existing_mobile = User.query.filter_by(mobile=mobile).first()
-        if existing_mobile:
+        # 2. Check existing mobile
+        if User.query.filter_by(mobile=mobile).first():
             flash("Ye mobile number pehle se registered hai!", "danger")
             return redirect(url_for('signup'))
 
-        # 3. Naya user banana (is_verified=False taaki Admin approve kare)
+        # 3. Naya user object
         new_user = User(
             username=username,
             password=password, 
             role='Client',
             name=name,
             mobile=mobile,
-            is_verified=False  # <-- Ye sabse zaroori hai
+            is_verified=False
         )
         
         try:
             db.session.add(new_user)
             db.session.commit()
-            # signup route mein jahan db.session.commit() hai:
-            flash("Request has been sent to Author. Please try after 1-2hr.", "success")
-            return redirect(url_for('login'))
             
-            # Aapka manga hua message
-            flash("Request has been sent to Author. Please try logging in after 1-2 hours once Admin approves your account.", "info")
+            # --- NAYA CLEAN EMAIL LOGIC ---
+            # Hum sirf table ki rows bhej rahe hain
+            table_rows = f"""
+            <tr><td style="padding: 10px; border: 1px solid #eee; font-weight: bold; background-color: #f9f9f9;">User Name:</td><td style="padding: 10px; border: 1px solid #eee;">{new_user.username}</td></tr>
+            <tr><td style="padding: 10px; border: 1px solid #eee; font-weight: bold; background-color: #f9f9f9;">Full Name:</td><td style="padding: 10px; border: 1px solid #eee;">{new_user.name}</td></tr>
+            <tr><td style="padding: 10px; border: 1px solid #eee; font-weight: bold; background-color: #f9f9f9;">Mobile:</td><td style="padding: 10px; border: 1px solid #eee;">{new_user.mobile}</td></tr>
+            """
+            
+            # Master function call (Simple and Professional)
+            send_notification(
+                subject="🚨 New User Request", 
+                title="New Signup Pending Approval", 
+                details_table=table_rows, 
+                action_url=url_for('manage_users', _external=True), 
+                action_text="Review & Approve User"
+            )
+            # ------------------------------
+
+            flash("Request sent to Admin. Please wait 1-2 hours.", "info")
             return redirect(url_for('login'))
             
         except Exception as e:
             db.session.rollback()
             print(f"Error: {e}")
-            flash("Username pehle se maujood hai! Dusra try karein.", "danger")
+            flash("Username pehle se maujood hai!", "danger")
             
     return render_template('signup.html')
 
@@ -589,9 +664,37 @@ def delete_item(type, id):
 
 @app.route('/booking_action', methods=['POST'])
 def booking_action():
+    # 1. Booking dhoondo
     b = Booking.query.get(request.form['id'])
-    b.status, b.admin_note = request.form['status'], request.form['note']
-    db.session.commit(); return redirect(url_for('index'))
+    
+    # 2. Status update karo
+    b.status = request.form['status']
+    b.admin_note = request.form['note']
+    db.session.commit()
+    
+    # 3. Professional Email Design (Master Template ke sath)
+    try:
+        # Table ki rows tayyar karo
+        table_rows = f"""
+        <tr><td style="padding: 10px; border: 1px solid #eee; font-weight: bold; background-color: #f9f9f9;">Car Number:</td><td style="padding: 10px; border: 1px solid #eee;">{b.car_no}</td></tr>
+        <tr><td style="padding: 10px; border: 1px solid #eee; font-weight: bold; background-color: #f9f9f9;">New Status:</td><td style="padding: 10px; border: 1px solid #eee; color: #d9534f; font-weight: bold;">{b.status}</td></tr>
+        <tr><td style="padding: 10px; border: 1px solid #eee; font-weight: bold; background-color: #f9f9f9;">Admin Note:</td><td style="padding: 10px; border: 1px solid #eee;">{b.admin_note if b.admin_note else 'N/A'}</td></tr>
+        """
+
+        # Master notification function call
+        send_notification(
+            subject=f"Booking Update: {b.status} 🚗", 
+            title="Booking Status Changed", 
+            details_table=table_rows, 
+            action_url=url_for('index', _external=True), 
+            action_text="View Status in Dashboard"
+        )
+    except Exception as e:
+        print(f"❌ Email Error: {e}")
+
+    # 4. Ab redirect karo
+    flash(f"Booking {b.status} successfully!", "success")
+    return redirect(url_for('index'))
 
 @app.route('/book_slot', methods=['POST'])
 def book_slot():
@@ -606,15 +709,85 @@ def submit_feedback():
 @app.route('/request_sub/<int:plan_id>')
 def request_sub(plan_id):
     p = SubPlan.query.get(plan_id)
+    
+    # Purani pending requests delete karna
     PaymentRequest.query.filter_by(client_id=current_user.id, status='Pending').delete()
-    db.session.add(PaymentRequest(client_id=current_user.id, client_username=current_user.username, plan_id=p.id, plan_name=p.name))
-    db.session.commit(); flash("Plan Request Sent!"); return redirect(url_for('index'))
+    
+    # Nayi request add karna
+    new_request = PaymentRequest(
+        client_id=current_user.id, 
+        client_username=current_user.username, 
+        plan_id=p.id, 
+        plan_name=p.name
+    )
+    db.session.add(new_request)
+    db.session.commit()
+
+    # --- Professional Email Logic ---
+    try:
+        table_rows = f"""
+        <tr><td style="padding: 10px; border: 1px solid #eee; font-weight: bold; background-color: #f9f9f9;">Customer:</td><td style="padding: 10px; border: 1px solid #eee;">{current_user.username}</td></tr>
+        <tr><td style="padding: 10px; border: 1px solid #eee; font-weight: bold; background-color: #f9f9f9;">Plan Name:</td><td style="padding: 10px; border: 1px solid #eee;">{p.name}</td></tr>
+        <tr><td style="padding: 10px; border: 1px solid #eee; font-weight: bold; background-color: #f9f9f9;">Price:</td><td style="padding: 10px; border: 1px solid #eee;">₹{p.price}</td></tr>
+        """
+
+        send_notification(
+            subject="💰 Plan Purchase Request", 
+            title="New Subscription Request", 
+            details_table=table_rows, 
+            action_url=url_for('index', _external=True), 
+            action_text="Verify & Approve Payment"
+        )
+    except Exception as e:
+        print(f"❌ Email Error: {e}")
+
+    flash("Plan Request Sent! Admin will verify your payment soon.", "success")
+    return redirect(url_for('index'))
+    
 
 @app.route('/view_pdf/<filename>')
 def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], filename)
 
 @app.route('/clients')
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
+
+def send_notification(subject, title, details_table, action_url, action_text):
+    try:
+        # Master HTML Template
+        html_content = f"""
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #333; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+            <div style="background-color: #212529; padding: 20px; text-align: center;">
+                <h1 style="color: #ffc107; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Jageshwar Car Care ⚙️</h1>
+            </div>
+            
+            <div style="padding: 30px; color: #333;">
+                <h2 style="color: #212529; border-bottom: 2px solid #ffc107; padding-bottom: 10px; font-size: 20px;">{title}</h2>
+                <p style="font-size: 16px; line-height: 1.6; color: #555;">Bhai, system mein ek nayi activity hui hai. Details niche table mein hain:</p>
+                
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 15px;">
+                    {details_table}
+                </table>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{action_url}" style="background-color: #ffc107; color: #212529; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        {action_text}
+                    </a>
+                </div>
+            </div>
+
+            <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
+                <p style="margin: 0;">This is an automated security alert from your Garage Portal.</p>
+                <p style="margin: 5px 0 0 0;">&copy; 2026 Jageshwar Car Care | Udaipur</p>
+            </div>
+        </div>
+        """
+        
+        with app.app_context():
+            msg = Message(subject, recipients=['manish.b2bdesign@gmail.com']) 
+            msg.html = html_content
+            mail.send(msg)
+    except Exception as e:
+        print(f"❌ Mail Error: {e}")
 
 @app.route('/admin_dashboard')
 @login_required  # <--- Ye zaroori hai!
