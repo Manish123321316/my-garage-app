@@ -755,43 +755,36 @@ def view_pdf(filename): return send_from_directory(app.config['BILL_FOLDER'], fi
 @app.route('/clients')
 def clients(): return render_template('clients.html', clients=ClientData.query.all())
 
-def send_notification(subject, title, details_table, action_url, action_text):
+def send_notification(subject, title, details_table, action_url="#", action_text="View Details"):
     try:
-        # Master HTML Template
+        # Simple HTML Template
         html_content = f"""
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #333; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
-            <div style="background-color: #212529; padding: 20px; text-align: center;">
-                <h1 style="color: #ffc107; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Jageshwar Car Care ⚙️</h1>
-            </div>
-            
-            <div style="padding: 30px; color: #333;">
-                <h2 style="color: #212529; border-bottom: 2px solid #ffc107; padding-bottom: 10px; font-size: 20px;">{title}</h2>
-                <p style="font-size: 16px; line-height: 1.6; color: #555;">Bhai, system mein ek nayi activity hui hai. Details niche table mein hain:</p>
-                
-                <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 15px;">
+        <html>
+            <body>
+                <h2>{title}</h2>
+                <table border="1" style="border-collapse: collapse;">
                     {details_table}
                 </table>
-
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="{action_url}" style="background-color: #ffc107; color: #212529; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                        {action_text}
-                    </a>
-                </div>
-            </div>
-
-            <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
-                <p style="margin: 0;">This is an automated security alert from your Garage Portal.</p>
-                <p style="margin: 5px 0 0 0;">&copy; 2026 Jageshwar Car Care | Udaipur</p>
-            </div>
-        </div>
+                <br>
+                <a href="{action_url}">{action_text}</a>
+            </body>
+        </html>
         """
         
-        with app.app_context():
-            msg = Message(subject, recipients=['manish.b2bdesign@gmail.com']) 
-            msg.html = html_content
-            mail.send(msg)
+        # Flask-Mail Message
+        msg = Message(
+            subject=subject,
+            recipients=['manish.b2bdesign@gmail.com'], # Asli ID check kar lena
+            html=html_content
+        )
+        
+        # Sabse important change: 'with' block ko hata kar simple mail.send use karo
+        mail.send(msg)
+        print("✅ Mail Sent Successfully!")
+        
     except Exception as e:
         print(f"❌ Mail Error: {e}")
+        # Error aane par hum Exception raise nahi karenge, bas print karenge
 
 @app.route('/admin_dashboard')
 @login_required  # <--- Ye zaroori hai!
