@@ -779,25 +779,23 @@ def send_async_email(app, msg):
             print(f"❌ Email Error: {e}")
 
 def send_notification(subject, title, details_table, action_url="#", action_text="View Details", recipient_email='manish.b2bdesign@gmail.com'):
-    html_content = f"""
-    <html>
-        <body style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4;">
-            <div style="max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">
-                <h2 style="color: #333;">{title}</h2>
-                <div style="margin: 20px 0;">{details_table}</div>
-                <a href="{action_url}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">{action_text}</a>
-            </div>
-        </body>
-    </html>
-    """
-    msg = Message(subject=subject,
-                  recipients=[recipient_email],
-                  html=html_content)
+    msg = Message(
+        subject=subject,
+        recipients=[recipient_email], # Yahan variable use karein
+        html=f"<h2>{title}</h2><table border='1'>{details_table}</table><br><a href='{action_url}'>{action_text}</a>"
+    )
     
-    # Threading taaki server hang na ho
-    thread = threading.Thread(target=send_async_email, args=(app, msg))
-    thread.start()
+    def send_email(app, msg):
+        with app.app_context():
+            try:
+                mail.send(msg)
+                print("✅ OTP Sent!")
+            except Exception as e:
+                print(f"❌ Email Failed: {e}")
 
+    thread = threading.Thread(target=send_email, args=(app, msg))
+    thread.start()
+    
 @app.route('/admin_dashboard')
 @login_required  # <--- Ye zaroori hai!
 def admin_dashboard():
